@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>High-Precision Screen Grid Ruler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="ruler-config.js"></script>
+    <style>
+        body, canvas {
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .caliper-handle {
+            position: absolute;
+            width: 56px;
+            height: 56px;
+            transform: translate(-50%, -50%);
+            border: 0;
+            border-radius: 9999px;
+            background: transparent;
+            cursor: grab;
+            touch-action: none;
+        }
+        .caliper-handle:active { cursor: grabbing; }
+        .caliper-handle:focus-visible { outline: 3px solid #ffffff; outline-offset: -8px; }
+        .caliper-guide {
+            position: absolute;
+            border: 0;
+            background: transparent;
+            touch-action: none;
+        }
+        .caliper-guide.vertical { top: 0; bottom: 0; width: 28px; transform: translateX(-50%); cursor: ew-resize; }
+        .caliper-guide.horizontal { left: 0; right: 0; height: 28px; transform: translateY(-50%); cursor: ns-resize; }
+        .caliper-guide:focus-visible { outline: 2px solid #ffffff; outline-offset: -4px; }
+        #levelTarget, #levelDrift, .level-axis-arc { border-radius: 9999px; }
+        #levelTarget {
+            width: 62px;
+            height: 62px;
+            border: 2px solid rgba(255,255,255,0.65);
+            background: rgba(10,10,10,0.14);
+            box-shadow: 0 0 24px rgba(0,0,0,0.18);
+            white-space: pre-line;
+        }
+        #levelNeedle {
+            width: 6px;
+            height: 2px;
+            background: rgba(255,255,255,0.85);
+            box-shadow: 0 0 5px rgba(255,255,255,0.35);
+            transform-origin: 0 50%;
+            transform: translateY(-50%) rotate(-90deg);
+        }
+        #levelDrift {
+            width: 62px;
+            height: 62px;
+            border: 2px solid rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.08);
+            opacity: 0.45;
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.12);
+            transition: none;
+        }
+        .level-axis-arc {
+            width: 62px;
+            height: 62px;
+            border: 2px solid rgba(255,255,255,0.55);
+        }
+        .level-axis-arc.left { clip-path: inset(0 0 0 50%); }
+        .level-axis-arc.right { clip-path: inset(0 50% 0 0); }
+        .level-axis-arc.top { clip-path: inset(50% 0 0 0); }
+        .level-axis-arc.bottom { clip-path: inset(0 0 50% 0); }
+        .light #settingsCard [id^="tabBtn-"].text-white { color: #171717; }
+        .light #settingsCard .hover\:text-white:hover,
+        .light #readoutPanel .hover\:text-white:hover { color: #171717; }
+        .light #settingsCard .text-neutral-400,
+        .light #readoutPanel .text-neutral-400 { color: #525252; }
+        .light #settingsCard .text-neutral-500,
+        .light #readoutPanel .text-neutral-500 { color: #737373; }
+        .light #levelTarget { border-color: rgba(23,23,23,0.7); background: rgba(255,255,255,0.25); }
+        .light #levelDrift { border-color: rgba(23,23,23,0.65); background: rgba(23,23,23,0.06); }
+        .light .level-axis-arc { border-color: rgba(23,23,23,0.6); }
+        .light #levelNeedle { background: rgba(23,23,23,0.8); box-shadow: none; }
+        .light #levelReadout { color: #171717; }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 9999px;
+        }
+        .light input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -5px;
+            background-color: #10b981;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            transition: transform 0.1s ease;
+        }
+        .light input[type="range"]::-webkit-slider-thumb {
+            background-color: #2563eb;
+        }
+        .blueprint input[type="range"]::-webkit-slider-thumb {
+            background-color: #06b6d4;
+        }
+    </style>
+</head>
+<body class="h-full overflow-hidden bg-neutral-950 text-neutral-100 font-sans transition-colors duration-300">
+
+    <canvas id="rulerCanvas" class="absolute inset-0 w-full h-full block z-0"></canvas>
+
+    <!-- Wide, invisible one-axis targets for the dotted guide lines. -->
+    <div id="caliperGuideLayer" class="absolute inset-0 pointer-events-none" style="z-index: 5;">
+        <button id="caliperGuideAX" type="button" class="caliper-guide vertical pointer-events-auto" aria-label="Move green vertical guide" title="Drag to move only the green vertical guide."></button>
+        <button id="caliperGuideAY" type="button" class="caliper-guide horizontal pointer-events-auto" aria-label="Move green horizontal guide" title="Drag to move only the green horizontal guide."></button>
+        <button id="caliperGuideBX" type="button" class="caliper-guide vertical pointer-events-auto" aria-label="Move amber vertical guide" title="Drag to move only the amber vertical guide."></button>
+        <button id="caliperGuideBY" type="button" class="caliper-guide horizontal pointer-events-auto" aria-label="Move amber horizontal guide" title="Drag to move only the amber horizontal guide."></button>
+    </div>
+
+    <!-- Real DOM controls: these own pointer capture while the canvas only draws. -->
+    <div id="caliperHandleLayer" class="absolute inset-0 z-20 pointer-events-none">
+        <button id="caliperHandleA" type="button" class="caliper-handle pointer-events-auto" aria-label="Move green caliper" title="Drag to move the green caliper. Arrow keys move it precisely."></button>
+        <button id="caliperHandleB" type="button" class="caliper-handle pointer-events-auto" aria-label="Move amber caliper" title="Drag to move the amber caliper. Arrow keys move it precisely."></button>
+        <button id="protractorHandleA" type="button" class="caliper-handle pointer-events-auto hidden" aria-label="Move green protractor guide" title="Drag to set the green A angle."></button>
+        <button id="protractorHandleB" type="button" class="caliper-handle pointer-events-auto hidden" aria-label="Move amber protractor guide" title="Drag to set the amber B angle."></button>
+    </div>
+
+    <div id="bubbleLevelPanel" class="fixed inset-0 hidden pointer-events-none overflow-hidden" style="z-index: 1;">
+        <div id="levelArcLeft" class="level-axis-arc left absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden"></div>
+        <div id="levelArcRight" class="level-axis-arc right absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden"></div>
+        <div id="levelArcTop" class="level-axis-arc top absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden"></div>
+        <div id="levelArcBottom" class="level-axis-arc bottom absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden"></div>
+        <div id="levelTarget" class="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+            <div id="levelNeedle" class="absolute" style="left: 50%; top: calc(50% - 31px);"></div>
+            <span id="levelReadout" class="relative z-10 text-center font-mono text-[11px] font-bold leading-tight text-white drop-shadow">X +0°
+Y +0°</span>
+        </div>
+        <div id="levelDrift" class="absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"></div>
+    </div>
+
+    <div class="absolute inset-0 flex flex-col justify-between pointer-events-none p-4 pb-safe z-10">
+        
+        <!-- Top Status Bar & Measurement Readouts -->
+        <div class="w-full flex justify-between items-start gap-4">
+            <div class="hidden pointer-events-auto bg-neutral-900/90 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 shadow-2xl flex flex-col gap-2 min-w-[280px] max-w-sm transition-all duration-300" id="readoutPanel">
+                <div class="flex justify-between items-center border-b border-neutral-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="statusIndicator"></span>
+                        <h2 class="font-bold text-sm tracking-wide uppercase text-neutral-400">Calipers</h2>
+                    </div>
+                    <button onclick="toggleMinimizeReadouts()" class="text-neutral-500 hover:text-white text-xs px-1.5 py-0.5 rounded border border-neutral-800 bg-neutral-950/50">Hide</button>
+                </div>
+                
+                <div id="readoutContent" class="space-y-3 pt-1">
+                    <div class="flex flex-col gap-1">
+                        <div class="text-xs font-medium text-emerald-400 flex items-center gap-1">
+                            Horizontal Spacing (ΔX)
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center bg-neutral-950/80 rounded-lg p-2 border border-neutral-800/50">
+                            <div>
+                                <div class="text-[10px] text-neutral-500 uppercase">Metric</div>
+                                <div id="caliperX_mm" class="font-mono text-sm font-semibold text-white">0.0 mm</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-neutral-500 uppercase">Inches</div>
+                                <div id="caliperX_in" class="font-mono text-sm font-semibold text-white">0.00"</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1">
+                        <div class="text-xs font-medium text-amber-500 flex items-center gap-1">
+                            Vertical Spacing (ΔY)
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center bg-neutral-950/80 rounded-lg p-2 border border-neutral-800/50">
+                            <div>
+                                <div class="text-[10px] text-neutral-500 uppercase">Metric</div>
+                                <div id="caliperY_mm" class="font-mono text-sm font-semibold text-white">0.0 mm</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-neutral-500 uppercase">Inches</div>
+                                <div id="caliperY_in" class="font-mono text-sm font-semibold text-white">0.00"</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="restoreReadoutsBtn" class="hidden text-center">
+                    <button onclick="toggleMinimizeReadouts()" class="text-emerald-400 font-medium text-xs hover:underline flex items-center justify-center gap-1 w-full py-1">
+                        Show Measurement Readouts
+                    </button>
+                </div>
+            </div>
+
+            <div class="pointer-events-auto flex flex-col items-end gap-2 transition-all duration-300" id="greetingContainer">
+                <div class="bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-xs px-3 py-2 rounded-xl backdrop-blur-md shadow-lg text-right">
+                    <span class="font-bold block text-emerald-400" id="activeDeviceBadge">Calibrated Mode</span>
+                    <span class="opacity-80 text-[10px]" id="activeDiagonalBadge">6.55" Layout</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Cards Drawer -->
+        <div class="w-full flex flex-col lg:flex-row items-end lg:items-start justify-end gap-3 pointer-events-none mt-auto">
+            
+            <div id="settingsCard" class="pointer-events-auto bg-neutral-900/95 backdrop-blur-lg border border-neutral-800 rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-y-auto shadow-2xl transition-all duration-300 translate-y-0 scale-100 opacity-100 flex flex-col">
+                <div class="grid grid-cols-3 border-b border-neutral-800 text-xs font-semibold text-neutral-400">
+                    <button onclick="setTab('calibrate')" id="tabBtn-calibrate" class="py-3 text-center border-b-2 border-emerald-500 text-white hover:bg-neutral-800/40 rounded-tl-2xl">Calibrate</button>
+                    <button onclick="setTab('guides')" id="tabBtn-guides" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40">Guides</button>
+                    <button onclick="setTab('theme')" id="tabBtn-theme" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40 rounded-tr-2xl">Theme</button>
+                </div>
+
+                <div class="p-5 flex-1 flex flex-col gap-4 overflow-y-auto">
+                    
+                    <div id="deviceControlsToMerge" class="space-y-4">
+                        <div class="relative">
+                            <label class="block text-xs font-bold uppercase text-emerald-400 mb-1.5">Device</label>
+                            <div class="relative">
+                                <input type="text" id="deviceSearchInput" placeholder="Search device preset..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-neutral-200 outline-none focus:border-emerald-500 transition-all" onfocus="showDeviceDropdown(true)" oninput="filterDevicePresets(this.value)">
+                                <div id="deviceDropdownList" class="hidden absolute left-0 right-0 bottom-full mb-1 max-h-60 overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50"></div>
+                            </div>
+                        </div>
+                        <div class="border-t border-neutral-800/50 pt-3 space-y-2">
+                            <div class="flex items-center justify-between gap-3">
+                                <div>
+                                    <div class="text-xs font-bold uppercase text-neutral-400">Online Device Match</div>
+                                    <div id="onlineLookupStatus" class="text-[10px] text-neutral-500">Uses a one-off secure lookup when configured.</div>
+                                </div>
+                                <button type="button" onclick="lookupDeviceOnline()" id="onlineLookupButton" class="shrink-0 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20">Look Up</button>
+                            </div>
+                        </div>
+
+                        <!-- Custom Screen Dimensions Form (Device Tab) -->
+                        <div id="customInputsBlock-device" class="hidden border-t border-neutral-800/50 pt-3 space-y-2">
+                            <h4 class="text-xs font-bold uppercase text-emerald-400">Custom Screen Dimensions</h4>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Width (px)</label>
+                                    <input type="number" oninput="updateCustomMetric('width', this.value)" class="custom-width-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="1080">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Height (px)</label>
+                                    <input type="number" oninput="updateCustomMetric('height', this.value)" class="custom-height-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="2400">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Diagonal (in)</label>
+                                    <input type="number" step="0.01" oninput="updateCustomMetric('diagonal', this.value)" class="custom-diag-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="6.55">
+                                </div>
+                            </div>
+                            <div class="text-[10px] text-neutral-500">
+                                Calculated Aspect Ratio: <span class="custom-aspect-readout font-bold text-neutral-300">20:9</span>
+                            </div>
+                        </div>
+
+                        <div id="diagonalControl" class="border-t border-neutral-800/50 pt-3">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold uppercase text-neutral-400">Screen Diagonal</label>
+                                <div class="flex items-center gap-1 text-emerald-400">
+                                    <input type="number" id="diagonalDisplay" min="0.01" step="0.01" value="6.55" onfocus="this.select()" onchange="commitRulerScale('diagonal', this.value)" onkeydown="if (event.key === 'Enter') this.blur()" class="w-16 bg-transparent border-b border-emerald-500/40 text-right font-mono text-sm font-bold outline-none focus:border-emerald-300" title="Enter a screen diagonal">
+                                    <span class="font-mono text-sm font-bold">&quot;</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="diagonalSlider" value="6.55">
+                        </div>
+                    </div>
+
+                    <div id="tabContent-calibrate" class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase text-neutral-400">Credit Card Outline</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="showCalibrationToggle" onchange="toggleCalibration(this.checked)" class="sr-only peer">
+                                <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                            </label>
+                        </div>
+
+                        <!-- Custom Screen Dimensions Form (Calibrate Tab) -->
+                        <div id="customInputsBlock-calibrate" class="hidden border-t border-neutral-800/50 pt-3 space-y-2">
+                            <h4 class="text-xs font-bold uppercase text-emerald-400">Custom Screen Dimensions</h4>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Width (px)</label>
+                                    <input type="number" oninput="updateCustomMetric('width', this.value)" class="custom-width-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="1080">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Height (px)</label>
+                                    <input type="number" oninput="updateCustomMetric('height', this.value)" class="custom-height-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="2400">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Diagonal (in)</label>
+                                    <input type="number" step="0.01" oninput="updateCustomMetric('diagonal', this.value)" class="custom-diag-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="6.55">
+                                </div>
+                            </div>
+                            <div class="text-[10px] text-neutral-500">
+                                Calculated Aspect Ratio: <span class="custom-aspect-readout font-bold text-neutral-300">20:9</span>
+                            </div>
+                        </div>
+
+                        <div id="ppiControl" class="border-t border-neutral-800/50 pt-3">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-bold uppercase text-neutral-400">Ruler Scale (PPI)</label>
+                                <div class="flex items-center gap-1 text-emerald-400">
+                                    <input type="number" id="microScaleDisplay" min="1" step="1" value="133" onfocus="this.select()" onchange="commitRulerScale('ppi', this.value)" onkeydown="if (event.key === 'Enter') this.blur()" class="w-14 bg-transparent border-b border-emerald-500/40 text-right font-mono text-sm font-bold outline-none focus:border-emerald-300" title="Enter ruler PPI">
+                                    <span class="font-mono text-sm font-bold">PPI</span>
+                                </div>
+                            </div>
+                            <input type="range" id="microSlider" min="0.01" max="13.10" step="0.01" value="6.55" oninput="updateDiagonalFromSlider(this.value)" class="w-full py-2">
+                            <div class="flex justify-between text-[9px] font-mono text-neutral-500 px-0.5">
+                                <span>0&quot;</span><span>Device</span><span>2× device</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tabContent-guides" class="hidden space-y-4">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase text-neutral-400">Show Calipers</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggleCalipers" checked onchange="toggleCaliperVisibility(this.checked)" class="sr-only peer">
+                                    <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-neutral-800/50 pt-3">
+                                <span class="text-xs font-bold uppercase text-neutral-400">Protractor</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggleProtractor" onchange="toggleProtractor(this.checked)" class="sr-only peer">
+                                    <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+                            <div id="bubbleLevelToggleRow" class="hidden flex items-center justify-between border-t border-neutral-800/50 pt-3">
+                                <span class="text-xs font-bold uppercase text-neutral-400">Bubble Level</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggleBubbleLevel" onchange="toggleBubbleLevel(this.checked)" class="sr-only peer">
+                                    <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+                            <div class="border-t border-neutral-800/50 pt-3">
+                                <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Background Grid Style</label>
+                                <select id="gridSelect" onchange="setGridType(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
+                                    <option value="metric" selected>Metric Grid (1cm)</option>
+                                    <option value="imperial">Imperial Grid (1")</option>
+                                    <option value="both">Dual Mesh Grid</option>
+                                    <option value="none">No Grid</option>
+                                </select>
+                            </div>
+                            <div class="border-t border-neutral-800/50 pt-3">
+                                <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Inch Measurements</label>
+                                <select id="inchFormatSelect" onchange="setInchFormat(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
+                                    <option value="fraction">Fractions (nearest 1/16)</option>
+                                    <option value="decimal">Decimals (0.00)</option>
+                                </select>
+                            </div>
+                            <button onclick="resetCalipers()" class="w-full mt-2 bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 py-2 text-xs font-bold uppercase rounded-xl transition-all">
+                                Reset Caliper Locations
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="tabContent-theme" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-neutral-400 mb-2">Display Theme</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="setTheme('dark')" id="themeBtn-dark" class="border border-emerald-500 bg-black text-white py-2 rounded-xl text-xs font-bold">OLED Onyx</button>
+                                <button onclick="setTheme('blueprint')" id="themeBtn-blueprint" class="border border-transparent bg-indigo-950 text-indigo-200 py-2 rounded-xl text-xs font-bold">Blueprint</button>
+                                <button onclick="setTheme('light')" id="themeBtn-light" class="border border-transparent bg-white text-neutral-800 py-2 rounded-xl text-xs font-bold">Light</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-3 bg-neutral-950 border-t border-neutral-800 text-[10px] text-neutral-500 text-center rounded-b-2xl">
+                    Drag a coloured caliper handle; double-tap empty grid to toggle the UI
+                </div>
+            </div>
+
+            <button id="toggleControlsBtn" onclick="toggleControls()" class="pointer-events-auto w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-850 active:scale-95 transition-all opacity-95">
+                <svg id="rulerToggleIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-emerald-400 transition-transform">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-3-15v15M4.5 9.75v-.75a1.5 1.5 0 011.5-1.5h12a1.5 1.5 0 011.5 1.5v.75m-15 0a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5m-15 0v3m15-3v3m0 0a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5m15 0v3a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V15" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- FIRST TIME USER ONBOARDING MODAL -->
+    <div id="onboardingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl">
+            <div class="space-y-1">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span class="text-emerald-400">📏</span> Calibrate Your Ruler
+                </h3>
+                <p class="text-xs text-neutral-400 leading-relaxed" id="bestGuessExplanation">
+                    Is this your device and screen size? It determines the size of the ruler on screen. If it’s not, just go to the Calibrate tab to get the ruler accurate.
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="relative">
+                    <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Select Your Current Device</label>
+                    <div class="relative">
+                        <input type="text" id="onboardSearchInput" placeholder="Search device preset..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-3 text-sm text-neutral-200 outline-none focus:border-emerald-500 transition-all" onfocus="showOnboardDropdown(true)" oninput="filterOnboardPresets(this.value)">
+                        <div id="onboardDropdownList" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50"></div>
+                    </div>
+                </div>
+
+                <div id="customOnboardBlock" class="hidden bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
+                    <label class="block text-xs font-bold uppercase text-neutral-400">Enter Screen Diagonal Size</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="customOnboardInput" step="0.01" value="6.55" min="2" max="30" class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm outline-none text-emerald-400 font-bold font-mono">
+                        <span class="text-sm font-semibold text-neutral-400">inches</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="confirmOnboarding(true)" class="bg-neutral-800 hover:bg-neutral-700 active:scale-[0.99] text-white font-bold text-sm py-3 rounded-xl transition-all border border-neutral-700">
+                    Calibrate
+                </button>
+                <button onclick="confirmOnboarding()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm py-3 rounded-xl transition-all shadow-lg shadow-emerald-900/20">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-xl opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-2xl flex items-center space-x-2 text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="toastMsg">Configuration Saved</span>
+    </div>
+
+    <script>
+        const PRESETS = [
+            // MOTOROLA
+            { name: "Motorola Edge 40 / Pro (6.55\")", diagonal: 6.55, wMatch: 1080, hMatch: 2400 },
+            { name: "Motorola Edge 50 Ultra / Pro (6.7\")", diagonal: 6.7, wMatch: 1220, hMatch: 2712 },
+            { name: "Motorola Edge (2023) (6.6\")", diagonal: 6.6, wMatch: 1080, hMatch: 2400 },
+            { name: "Motorola Moto G Power 5G (2024) (6.7\")", diagonal: 6.7, wMatch: 1080, hMatch: 2400 },
+            { name: "Motorola Moto G Stylus 5G (2024) (6.7\")", diagonal: 6.7, wMatch: 1080, hMatch: 2400 },
+            { name: "Motorola Moto G Play (2024) (6.5\")", diagonal: 6.5, wMatch: 720, hMatch: 1600 },
+            { name: "Motorola Razr Foldable (6.9\")", diagonal: 6.9, wMatch: 1080, hMatch: 2640 },
+
+            // APPLE IPHONE
+            { name: "iPhone 15 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1290, hMatch: 2796 },
+            { name: "iPhone 15 Pro (6.1\")", diagonal: 6.1, wMatch: 1179, hMatch: 2556 },
+            { name: "iPhone 15 Plus (6.7\")", diagonal: 6.7, wMatch: 1290, hMatch: 2796 },
+            { name: "iPhone 15 (6.1\")", diagonal: 6.1, wMatch: 1179, hMatch: 2556 },
+            { name: "iPhone 14 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1290, hMatch: 2796 },
+            { name: "iPhone 14 Pro (6.1\")", diagonal: 6.1, wMatch: 1179, hMatch: 2556 },
+            { name: "iPhone 14 Plus (6.7\")", diagonal: 6.7, wMatch: 1284, hMatch: 2778 },
+            { name: "iPhone 14 (6.1\")", diagonal: 6.1, wMatch: 1170, hMatch: 2532 },
+            { name: "iPhone 13 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1284, hMatch: 2778 },
+            { name: "iPhone 13 / 13 Pro (6.1\")", diagonal: 6.1, wMatch: 1170, hMatch: 2532 },
+            { name: "iPhone 13 mini (5.4\")", diagonal: 5.4, wMatch: 1080, hMatch: 2340 },
+            { name: "iPhone 12 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1284, hMatch: 2778 },
+            { name: "iPhone 12 / 12 Pro (6.1\")", diagonal: 6.1, wMatch: 1170, hMatch: 2532 },
+            { name: "iPhone 11 Pro Max (6.5\")", diagonal: 6.5, wMatch: 1242, hMatch: 2688 },
+            { name: "iPhone 11 (6.1\")", diagonal: 6.1, wMatch: 828, hMatch: 1792 },
+            { name: "iPhone SE (3rd Gen) (4.7\")", diagonal: 4.7, wMatch: 750, hMatch: 1334 },
+            { name: "iPhone XR (6.1\")", diagonal: 6.1, wMatch: 828, hMatch: 1792 },
+
+            // SAMSUNG GALAXY
+            { name: "Samsung Galaxy S24 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3120 },
+            { name: "Samsung Galaxy S24+ (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3120 },
+            { name: "Samsung Galaxy S24 (6.2\")", diagonal: 6.2, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy S23 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3088 },
+            { name: "Samsung Galaxy S23+ (6.6\")", diagonal: 6.6, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy S23 (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy S22 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3088 },
+            { name: "Samsung Galaxy S22 (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy S21 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3200 },
+            { name: "Samsung Galaxy S21 (6.2\")", diagonal: 6.2, wMatch: 1080, hMatch: 2400 },
+            { name: "Samsung Galaxy A54 5G (6.4\")", diagonal: 6.4, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy A35 5G (6.6\")", diagonal: 6.6, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy A15 5G (6.5\")", diagonal: 6.5, wMatch: 1080, hMatch: 2340 },
+            { name: "Samsung Galaxy A03s (6.5\")", diagonal: 6.5, wMatch: 720, hMatch: 1600 },
+            { name: "Samsung Galaxy Z Fold 5 (7.6\")", diagonal: 7.6, wMatch: 1812, hMatch: 2176 },
+            { name: "Samsung Galaxy Z Flip 5 (6.7\")", diagonal: 6.7, wMatch: 1080, hMatch: 2640 },
+
+            // GOOGLE PIXEL
+            { name: "Google Pixel 8 Pro (6.7\")", diagonal: 6.7, wMatch: 1344, hMatch: 2992 },
+            { name: "Google Pixel 8 (6.2\")", diagonal: 6.2, wMatch: 1080, hMatch: 2400 },
+            { name: "Google Pixel 8a (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2400 },
+            { name: "Google Pixel 7 Pro (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3120 },
+            { name: "Google Pixel 7 (6.3\")", diagonal: 6.3, wMatch: 1080, hMatch: 2400 },
+            { name: "Google Pixel 7a (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2400 },
+            { name: "Google Pixel 6 Pro (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3120 },
+            { name: "Google Pixel 6 (6.4\")", diagonal: 6.4, wMatch: 1080, hMatch: 2400 },
+
+            // ONEPLUS
+            { name: "OnePlus 12 (6.82\")", diagonal: 6.82, wMatch: 1440, hMatch: 3168 },
+            { name: "OnePlus 12R (6.78\")", diagonal: 6.78, wMatch: 1264, hMatch: 2780 },
+            { name: "OnePlus 11 5G (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3216 },
+            { name: "OnePlus Nord N30 5G (6.72\")", diagonal: 6.72, wMatch: 1080, hMatch: 2400 },
+
+            // TABLETS & MONITORS
+            { name: "iPad Pro 12.9\" Tablet (12.9\")", diagonal: 12.9, wMatch: 2048, hMatch: 2732 },
+            { name: "iPad Pro 11\" Tablet (11.0\")", diagonal: 11.0, wMatch: 1668, hMatch: 2420 },
+            { name: "iPad Air 10.9\" Tablet (10.9\")", diagonal: 10.9, wMatch: 1640, hMatch: 2360 },
+            { name: "Standard Full HD Monitor (24\")", diagonal: 24.0, wMatch: 1920, hMatch: 1080 },
+            { name: "Standard QHD Monitor (27\")", diagonal: 27.0, wMatch: 2560, hMatch: 1440 },
+            { name: "Standard 4K Monitor (27\")", diagonal: 27.0, wMatch: 3840, hMatch: 2160 }
+        ];
+
+        // Android Chromium exposes the model only through User-Agent Client Hints.
+        // iPhone browsers intentionally do not identify the model, so their physical
+        // pixel resolution and DPR remain the useful fingerprint there.
+        const MODEL_TO_PRESET = [
+            ['SM-S928', 'Samsung Galaxy S24 Ultra (6.8\")'], ['SM-S926', 'Samsung Galaxy S24+ (6.7\")'], ['SM-S921', 'Samsung Galaxy S24 (6.2\")'],
+            ['SM-S918', 'Samsung Galaxy S23 Ultra (6.8\")'], ['SM-S916', 'Samsung Galaxy S23+ (6.6\")'], ['SM-S911', 'Samsung Galaxy S23 (6.1\")'],
+            ['SM-S908', 'Samsung Galaxy S22 Ultra (6.8\")'], ['SM-S901', 'Samsung Galaxy S22 (6.1\")'], ['SM-G998', 'Samsung Galaxy S21 Ultra (6.8\")'],
+            ['SM-G991', 'Samsung Galaxy S21 (6.2\")'], ['SM-A546', 'Samsung Galaxy A54 5G (6.4\")'], ['SM-A356', 'Samsung Galaxy A35 5G (6.6\")'],
+            ['SM-A156', 'Samsung Galaxy A15 5G (6.5\")'], ['PIXEL 8 PRO', 'Google Pixel 8 Pro (6.7\")'], ['PIXEL 8A', 'Google Pixel 8a (6.1\")'],
+            ['PIXEL 8', 'Google Pixel 8 (6.2\")'], ['PIXEL 7 PRO', 'Google Pixel 7 Pro (6.7\")'], ['PIXEL 7A', 'Google Pixel 7a (6.1\")'],
+            ['PIXEL 7', 'Google Pixel 7 (6.3\")'], ['PIXEL 6 PRO', 'Google Pixel 6 Pro (6.7\")'], ['PIXEL 6', 'Google Pixel 6 (6.4\")'],
+            ['CPH2573', 'OnePlus 12 (6.82\")'], ['CPH2585', 'OnePlus 12R (6.78\")'], ['CPH2449', 'OnePlus 11 5G (6.7\")'],
+            ['MOTOROLA EDGE 40', 'Motorola Edge 40 / Pro (6.55\")'], ['MOTOROLA EDGE 50', 'Motorola Edge 50 Ultra / Pro (6.7\")']
+        ];
+        let detectedDeviceModel = '';
+        const onlineLookupConfig = window.SCREEN_RULER_CONFIG || {};
+
+        function getPhysicalScreenResolution() {
+            const dpr = window.devicePixelRatio || 1;
+            return {
+                width: Math.round((window.screen.width || window.innerWidth) * dpr),
+                height: Math.round((window.screen.height || window.innerHeight) * dpr),
+                dpr
+            };
+        }
+
+        async function detectDeviceProfile() {
+            try {
+                if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+                    const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
+                    detectedDeviceModel = (hints.model || '').trim();
+                }
+            } catch (_) {
+                // Client hints are optional; the resolution/DPR matching path below is still useful.
+            }
+
+            if (!detectedDeviceModel) {
+                const uaModel = navigator.userAgent.match(/Android[^;]*;\s*([^;)]+?)(?:\s+Build\/|\))/i);
+                detectedDeviceModel = uaModel ? uaModel[1].trim() : '';
+            }
+        }
+
+        function setOnlineLookupStatus(message, isError = false) {
+            const status = document.getElementById('onlineLookupStatus');
+            status.textContent = message;
+            status.className = `text-[10px] ${isError ? 'text-rose-400' : 'text-neutral-500'}`;
+        }
+
+        async function lookupDeviceOnline() {
+            const endpoint = onlineLookupConfig.lookupEndpoint;
+            const publicKey = onlineLookupConfig.supabaseAnonKey;
+            if (!endpoint) {
+                setOnlineLookupStatus('Online lookup is not configured for this site yet.', true);
+                return;
+            }
+
+            await detectDeviceProfile();
+            const model = detectedDeviceModel.trim();
+            if (!model || model.length < 2 || model.toUpperCase() === 'K') {
+                setOnlineLookupStatus('This browser did not provide a usable device model. Choose a device manually.', true);
+                return;
+            }
+
+            const button = document.getElementById('onlineLookupButton');
+            button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-wait');
+            setOnlineLookupStatus('Looking up this device…');
+
+            try {
+                const signature = getPhysicalScreenResolution();
+                const headers = { 'Content-Type': 'application/json' };
+                if (publicKey) {
+                    headers.apikey = publicKey;
+                    headers.Authorization = `Bearer ${publicKey}`;
+                }
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ model, width: signature.width, height: signature.height, dpr: signature.dpr })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Lookup failed');
+                if (!result.match) {
+                    setOnlineLookupStatus('No confident online match found. Choose a device manually.', true);
+                    return;
+                }
+
+                diagonal = result.match.diagonal;
+                scaleReferenceDiagonal = diagonal;
+                customDiagonal = diagonal;
+                customWidth = result.match.width;
+                customHeight = result.match.height;
+                activePresetName = `${result.match.brand} ${result.match.name} (${diagonal.toFixed(2)}")`;
+                const cssWidth = (window.screen.width || window.innerWidth);
+                const cssHeight = (window.screen.height || window.innerHeight);
+                ppi = Math.sqrt(cssWidth * cssWidth + cssHeight * cssHeight) / diagonal;
+
+                localStorage.setItem('calibrated_ruler_ppi', ppi);
+                localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+                localStorage.setItem('calibrated_ruler_presetName', activePresetName);
+                applySavedMetrics();
+                setOnlineLookupStatus(`Matched ${result.match.brand} ${result.match.name}.`);
+                showToast('Online device match applied.');
+            } catch (error) {
+                setOnlineLookupStatus(error.message || 'Online lookup is unavailable.', true);
+            } finally {
+                button.disabled = false;
+                button.classList.remove('opacity-50', 'cursor-wait');
+            }
+        }
+
+        let ppi = 133.93; 
+        let diagonal = 6.55;
+        let scaleReferenceDiagonal = 6.55;
+        let activePresetName = "Motorola Edge 40 / Pro (6.55\")";
+        let currentTheme = 'dark';
+        let showCalibration = false;
+        let showGrid = 'metric';
+        let showCalipers = true;
+        let showProtractor = false;
+        let protractorSelectedOnce = false;
+        let protractorAngleA = 35;
+        let protractorAngleB = 125;
+        let activeProtractorGuide = null;
+        let activeProtractorPointerId = null;
+        let inchFormat = localStorage.getItem('calibrated_ruler_inch_format') || 'fraction';
+
+        // Custom device calculations state
+        let customWidth = 1080;
+        let customHeight = 2400;
+        let customDiagonal = 6.55;
+
+        let pointA = { x: 100, y: 150 };
+        let pointB = { x: 300, y: 450 };
+        let activePoint = null;
+        let activePointerId = null;
+        
+        // A point handle is deliberately easier to grab than a guide line, without
+        // stealing ordinary taps from a large part of the canvas.
+        const DRAG_THRESHOLD = 34;
+        const LINE_GRAB_MARGIN = 16;
+        let caliperDraggedThisInteraction = false;
+        let ignoreNextClick = false;
+        let areControlsHidden = false;
+
+        const canvas = document.getElementById('rulerCanvas');
+        const ctx = canvas.getContext('2d');
+        const caliperHandleA = document.getElementById('caliperHandleA');
+        const caliperHandleB = document.getElementById('caliperHandleB');
+        const protractorHandleA = document.getElementById('protractorHandleA');
+        const protractorHandleB = document.getElementById('protractorHandleB');
+        const caliperGuideAX = document.getElementById('caliperGuideAX');
+        const caliperGuideAY = document.getElementById('caliperGuideAY');
+        const caliperGuideBX = document.getElementById('caliperGuideBX');
+        const caliperGuideBY = document.getElementById('caliperGuideBY');
+        const bubbleLevelPanel = document.getElementById('bubbleLevelPanel');
+        const levelDrift = document.getElementById('levelDrift');
+        const levelReadout = document.getElementById('levelReadout');
+        const levelNeedle = document.getElementById('levelNeedle');
+        const levelArcs = {
+            left: document.getElementById('levelArcLeft'), right: document.getElementById('levelArcRight'),
+            top: document.getElementById('levelArcTop'), bottom: document.getElementById('levelArcBottom')
+        };
+        const settingsCard = document.getElementById('settingsCard');
+        const rulerToggleIcon = document.getElementById('rulerToggleIcon');
+        const canUseBubbleLevel = 'DeviceOrientationEvent' in window;
+        let bubbleLevelListening = false;
+        let smoothedLevelTilt = null;
+        let lastLevelSampleAt = 0;
+
+        if (screen.orientation?.addEventListener) screen.orientation.addEventListener('change', resetBubbleLevelSmoothing);
+        window.addEventListener('orientationchange', resetBubbleLevelSmoothing);
+
+        mergeDeviceControlsIntoCalibrate();
+
+        window.addEventListener('load', () => {
+            initSearchDropdowns();
+            initBubbleLevel();
+            document.getElementById('inchFormatSelect').value = inchFormat;
+            detectDeviceProfile().finally(() => {
+                checkFirstTimeOnboarding();
+                resizeCanvas();
+                updateDisplayValues();
+                drawAll();
+            });
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                if (!document.getElementById('deviceDropdownList').classList.contains('hidden')) positionDeviceDropdown();
+                drawAll();
+            });
+
+            // Universal Click Handler (Handles dropdown dismissals and Tap-Away controls closing)
+            document.addEventListener('click', (e) => {
+                if (ignoreNextClick) {
+                    ignoreNextClick = false;
+                    return;
+                }
+
+                // Autocomplete List Closures
+                const listDevice = document.getElementById('deviceDropdownList');
+                const searchDevice = document.getElementById('deviceSearchInput');
+                if (listDevice && searchDevice && !searchDevice.contains(e.target) && !listDevice.contains(e.target)) {
+                    listDevice.classList.add('hidden');
+                }
+
+                const listOnboard = document.getElementById('onboardDropdownList');
+                const searchOnboard = document.getElementById('onboardSearchInput');
+                if (listOnboard && searchOnboard && !searchOnboard.contains(e.target) && !listOnboard.contains(e.target)) {
+                    listOnboard.classList.add('hidden');
+                }
+
+                // Hide Controls when tapping on empty canvas zone
+                const readoutPanel = document.getElementById('readoutPanel');
+                const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+                const onboardingModal = document.getElementById('onboardingModal');
+
+                if (!areControlsHidden && 
+                    settingsCard && !settingsCard.contains(e.target) && 
+                    !listDevice.contains(e.target) &&
+                    readoutPanel && !readoutPanel.contains(e.target) && 
+                    toggleControlsBtn && !toggleControlsBtn.contains(e.target) &&
+                    !e.target.closest('#caliperHandleLayer') &&
+                    !e.target.closest('#caliperGuideLayer') &&
+                    (!onboardingModal || onboardingModal.classList.contains('opacity-0'))) {
+                    toggleControls();
+                }
+            });
+
+            // Double tap canvas workspace toggles control board seamlessly
+            let lastTap = 0;
+            const handleDblTaps = (e) => {
+                if (!e.target.closest('button') && !e.target.closest('#settingsCard') && !e.target.closest('#readoutPanel') && !e.target.closest('#onboardingModal') && !e.target.closest('#deviceDropdownList')) {
+                    toggleControls();
+                }
+            };
+            document.addEventListener('touchend', (e) => {
+                if (ignoreNextClick) return; 
+                let now = new Date().getTime();
+                if (now - lastTap < 300 && now - lastTap > 0) {
+                    handleDblTaps(e);
+                    e.preventDefault();
+                }
+                lastTap = now;
+            });
+            document.addEventListener('dblclick', handleDblTaps);
+        });
+
+        function checkFirstTimeOnboarding() {
+            const savedPpi = localStorage.getItem('calibrated_ruler_ppi');
+            const savedDiag = localStorage.getItem('calibrated_ruler_diagonal');
+            const savedPresetName = localStorage.getItem('calibrated_ruler_presetName');
+
+            const signature = getPhysicalScreenResolution();
+            const realW = signature.width;
+            const realH = signature.height;
+            const dpr = signature.dpr.toFixed(1);
+            
+            document.getElementById('bestGuessExplanation').innerHTML = 
+                `Browsers hide physical display specifications to protect your privacy. Based on your detected screen resolution of <span class="text-emerald-400 font-mono font-bold">${realW} × ${realH}</span> (at a Device Pixel Ratio of <span class="text-emerald-400 font-mono font-bold">${dpr}</span>), we have pre-selected our best guess profile below. You can easily search for your phone inside the search bar.`;
+
+            if (detectedDeviceModel) {
+                document.getElementById('bestGuessExplanation').innerHTML +=
+                    ` Browser model hint: <span class="text-emerald-400 font-mono font-bold">${escapeHtml(detectedDeviceModel)}</span>.`;
+            }
+
+            document.getElementById('bestGuessExplanation').textContent =
+                'Is this your device and screen size? It determines the size of the ruler on screen. If it’s not, just go to the Calibrate tab to get the ruler accurate.';
+
+            if (savedPpi && savedDiag) {
+                ppi = parseFloat(savedPpi);
+                diagonal = parseFloat(savedDiag);
+                activePresetName = savedPresetName || "Custom Preset";
+                scaleReferenceDiagonal = diagonal;
+                
+                customWidth = realW;
+                customHeight = realH;
+                customDiagonal = diagonal;
+                updateCustomInputsUI();
+                applySavedMetrics();
+            } else {
+                const guess = makeBestResolutionGuess();
+                activePresetName = guess.name;
+                diagonal = guess.diagonal;
+                scaleReferenceDiagonal = guess.diagonal;
+                
+                customWidth = guess.wMatch;
+                customHeight = guess.hMatch;
+                customDiagonal = guess.diagonal;
+                updateCustomInputsUI();
+
+                document.getElementById('onboardSearchInput').value = guess.name;
+                handleOnboardSelect(guess.name);
+
+                const modal = document.getElementById('onboardingModal');
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function makeBestResolutionGuess() {
+            const { width: screenW, height: screenH } = getPhysicalScreenResolution();
+            const normalisedModel = detectedDeviceModel.toUpperCase();
+            const modelMatch = MODEL_TO_PRESET.find(([modelFragment]) => normalisedModel.includes(modelFragment));
+            if (modelMatch) {
+                const exactPreset = PRESETS.find(p => p.name === modelMatch[1]);
+                if (exactPreset) return exactPreset;
+            }
+            
+            let matched = PRESETS[0]; 
+            let minDiff = Infinity;
+
+            PRESETS.forEach(p => {
+                const diff = Math.abs(p.wMatch - screenW) + Math.abs(p.hMatch - screenH);
+                const invertedDiff = Math.abs(p.hMatch - screenW) + Math.abs(p.wMatch - screenH); 
+                const actualSmallest = Math.min(diff, invertedDiff);
+                if (actualSmallest < minDiff) {
+                    minDiff = actualSmallest;
+                    matched = p;
+                }
+            });
+            return matched;
+        }
+
+        function escapeHtml(value) {
+            const el = document.createElement('div');
+            el.textContent = value;
+            return el.innerHTML;
+        }
+
+        function initSearchDropdowns() {
+            mountDeviceDropdown();
+            settingsCard.addEventListener('scroll', () => {
+                if (!document.getElementById('deviceDropdownList').classList.contains('hidden')) positionDeviceDropdown();
+            });
+            filterDevicePresets('');
+            filterOnboardPresets('');
+        }
+
+        function mergeDeviceControlsIntoCalibrate() {
+            const deviceControls = document.getElementById('deviceControlsToMerge');
+            const calibrationTab = document.getElementById('tabContent-calibrate');
+            const profileSelector = deviceControls.firstElementChild;
+            const customDimensions = document.getElementById('customInputsBlock-device');
+            const diagonalControl = document.getElementById('diagonalControl');
+            const ppiControl = document.getElementById('ppiControl');
+            const duplicateCustomDimensions = document.getElementById('customInputsBlock-calibrate');
+
+            if (duplicateCustomDimensions) duplicateCustomDimensions.remove();
+
+            const scaleControls = document.createElement('div');
+            scaleControls.className = 'border-t border-neutral-800/50 pt-3 space-y-4';
+            scaleControls.innerHTML = '<h4 class="text-xs font-bold uppercase text-emerald-400">Ruler Scale</h4>';
+            diagonalControl.classList.remove('border-t', 'pt-3');
+            ppiControl.classList.remove('border-t', 'pt-3');
+            scaleControls.append(diagonalControl, ppiControl);
+
+            // The profile and the two editable scale readouts replace custom dimensions.
+            calibrationTab.prepend(profileSelector, scaleControls);
+            deviceControls.remove();
+        }
+
+        function mountDeviceDropdown() {
+            const list = document.getElementById('deviceDropdownList');
+            if (list.parentElement !== document.body) document.body.appendChild(list);
+            list.style.position = 'fixed';
+            list.style.zIndex = '100';
+        }
+
+        function positionDeviceDropdown() {
+            const input = document.getElementById('deviceSearchInput');
+            const list = document.getElementById('deviceDropdownList');
+            const rect = input.getBoundingClientRect();
+            list.style.left = rect.left + 'px';
+            list.style.width = rect.width + 'px';
+            list.style.right = 'auto';
+            list.style.top = 'auto';
+            // Open upward from the field, outside the scrollable settings card.
+            list.style.bottom = Math.max(8, window.innerHeight - rect.top + 6) + 'px';
+        }
+
+        function showDeviceDropdown(visible) {
+            const list = document.getElementById('deviceDropdownList');
+            if (visible) {
+                mountDeviceDropdown();
+                positionDeviceDropdown();
+                list.classList.remove('hidden');
+            }
+            else setTimeout(() => list.classList.add('hidden'), 200);
+        }
+
+        function filterDevicePresets(query) {
+            const list = document.getElementById('deviceDropdownList');
+            list.innerHTML = '';
+            
+            const filtered = PRESETS.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            
+            filtered.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "px-3 py-2.5 hover:bg-neutral-800 cursor-pointer text-sm border-b border-neutral-800/40 text-neutral-200 transition-colors flex justify-between items-center";
+                div.innerText = p.name;
+                
+                if (p.name === activePresetName) {
+                    const badge = document.createElement('span');
+                    badge.className = "text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider";
+                    badge.innerText = "Active";
+                    div.appendChild(badge);
+                }
+
+                div.addEventListener('click', () => {
+                    document.getElementById('deviceSearchInput').value = p.name;
+                    applyPreset(p.name);
+                    list.classList.add('hidden');
+                });
+                list.appendChild(div);
+            });
+
+            const customDiv = document.createElement('div');
+            customDiv.className = "px-3 py-2.5 hover:bg-neutral-800 cursor-pointer text-sm text-emerald-400 font-semibold transition-colors";
+            customDiv.innerText = "🔍 Custom Device (Override Size)";
+            customDiv.addEventListener('click', () => {
+                document.getElementById('deviceSearchInput').value = "Custom Override Selection";
+                applyPreset("CUSTOM_DEVICE");
+                list.classList.add('hidden');
+            });
+            list.appendChild(customDiv);
+        }
+
+        function showOnboardDropdown(visible) {
+            const list = document.getElementById('onboardDropdownList');
+            if (visible) list.classList.remove('hidden');
+            else setTimeout(() => list.classList.add('hidden'), 200);
+        }
+
+        function filterOnboardPresets(query) {
+            const list = document.getElementById('onboardDropdownList');
+            list.innerHTML = '';
+            
+            const filtered = PRESETS.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            
+            filtered.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "px-3 py-2.5 hover:bg-neutral-800 cursor-pointer text-sm border-b border-neutral-800/40 text-neutral-200 transition-colors";
+                div.innerText = p.name;
+                div.addEventListener('click', () => {
+                    document.getElementById('onboardSearchInput').value = p.name;
+                    handleOnboardSelect(p.name);
+                    list.classList.add('hidden');
+                });
+                list.appendChild(div);
+            });
+
+            const customDiv = document.createElement('div');
+            customDiv.className = "px-3 py-2.5 hover:bg-neutral-800 cursor-pointer text-sm text-emerald-400 font-semibold transition-colors";
+            customDiv.innerText = "🔍 Custom Device (Override Size)";
+            customDiv.addEventListener('click', () => {
+                document.getElementById('onboardSearchInput').value = "Custom Override Selection";
+                handleOnboardSelect("CUSTOM_DEVICE");
+                list.classList.add('hidden');
+            });
+            list.appendChild(customDiv);
+        }
+
+        function handleOnboardSelect(val) {
+            const block = document.getElementById('customOnboardBlock');
+            if (val === "CUSTOM_DEVICE" || val === "Custom Override Selection") {
+                block.classList.remove('hidden');
+            } else {
+                block.classList.add('hidden');
+            }
+        }
+
+        // Custom Sizing Dimension Inputs Logic
+        function updateCustomMetric(metric, value) {
+            const parsed = parseFloat(value);
+            if (isNaN(parsed) || parsed <= 0) return;
+
+            if (metric === 'width') {
+                customWidth = parsed;
+            } else if (metric === 'height') {
+                customHeight = parsed;
+            } else if (metric === 'diagonal') {
+                customDiagonal = parsed;
+            }
+
+            recalculateCustomPPI();
+            updateCustomInputsUI();
+        }
+
+        function recalculateCustomPPI() {
+            // The canvas is measured in CSS pixels. The custom inputs describe physical
+            // resolution, so convert through DPR before turning the diagonal into ruler PPI.
+            const dpr = window.devicePixelRatio || 1;
+            const diagPx = Math.sqrt((customWidth / dpr) ** 2 + (customHeight / dpr) ** 2);
+            ppi = diagPx / customDiagonal;
+            diagonal = customDiagonal;
+
+            document.getElementById('diagonalSlider').value = customDiagonal;
+            document.getElementById('diagonalDisplay').value = customDiagonal.toFixed(2);
+            setFineScaleRange(ppi);
+            
+            document.getElementById('activeDeviceBadge').innerText = "Custom Spec";
+            document.getElementById('activeDiagonalBadge').innerText = customDiagonal.toFixed(2) + '" Layout';
+
+            localStorage.setItem('calibrated_ruler_ppi', ppi);
+            localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+            localStorage.setItem('calibrated_ruler_presetName', "Custom Overridden Size");
+            drawAll();
+        }
+
+        function updateCustomInputsUI() {
+            document.querySelectorAll('.custom-width-input').forEach(el => el.value = customWidth);
+            document.querySelectorAll('.custom-height-input').forEach(el => el.value = customHeight);
+            document.querySelectorAll('.custom-diag-input').forEach(el => el.value = customDiagonal.toFixed(2));
+            
+            const gcd = (a, b) => b ? gcd(b, a % b) : a;
+            const divisor = gcd(customWidth, customHeight);
+            const aspectStr = divisor > 0 ? `${customWidth / divisor}:${customHeight / divisor}` : "Custom";
+            document.querySelectorAll('.custom-aspect-readout').forEach(el => el.innerText = aspectStr);
+        }
+
+        function checkPresetMatch(name) {
+            const match = PRESETS.find(p => p.name.toLowerCase() === name.toLowerCase());
+            const customBlockDev = document.getElementById('customInputsBlock-device');
+            const customBlockCal = document.getElementById('customInputsBlock-calibrate');
+            
+            if (match) {
+                if (customBlockDev) customBlockDev.classList.add('hidden');
+                if (customBlockCal) customBlockCal.classList.add('hidden');
+            } else {
+                if (customBlockDev) customBlockDev.classList.remove('hidden');
+                if (customBlockCal) customBlockCal.classList.remove('hidden');
+                updateCustomInputsUI();
+            }
+        }
+
+        function confirmOnboarding(openCalibrateTab = false) {
+            const choice = document.getElementById('onboardSearchInput').value;
+            if (choice === "CUSTOM_DEVICE" || choice === "Custom Override Selection") {
+                const customVal = parseFloat(document.getElementById('customOnboardInput').value);
+                if (!isNaN(customVal) && customVal > 2 && customVal < 40) {
+                    diagonal = customVal;
+                    customDiagonal = customVal;
+                    activePresetName = "Custom User Device";
+                }
+            } else {
+                const found = PRESETS.find(p => p.name === choice);
+                if (found) {
+                    diagonal = found.diagonal;
+                    customDiagonal = found.diagonal;
+                    customWidth = found.wMatch;
+                    customHeight = found.hMatch;
+                    activePresetName = found.name;
+                    scaleReferenceDiagonal = found.diagonal;
+                } else {
+                    const customVal = parseFloat(document.getElementById('customOnboardInput').value);
+                    diagonal = (!isNaN(customVal)) ? customVal : 6.55;
+                    customDiagonal = diagonal;
+                    activePresetName = "Custom Device";
+                }
+            }
+
+            const sw = window.screen.width || window.innerWidth;
+            const sh = window.screen.height || window.innerHeight;
+            const cssDiag = Math.sqrt(sw*sw + sh*sh);
+            ppi = cssDiag / diagonal;
+
+            localStorage.setItem('calibrated_ruler_ppi', ppi);
+            localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+            localStorage.setItem('calibrated_ruler_presetName', activePresetName);
+
+            document.getElementById('onboardingModal').classList.add('opacity-0', 'pointer-events-none');
+            
+            applySavedMetrics();
+            if (openCalibrateTab) {
+                setTab('calibrate');
+                showToast("Open the Calibrate tab to fine-tune the ruler.");
+            } else {
+                showToast("Ruler ready.");
+            }
+        }
+
+        function applySavedMetrics() {
+            document.getElementById('deviceSearchInput').value = activePresetName;
+            document.getElementById('diagonalSlider').value = diagonal;
+            document.getElementById('diagonalDisplay').value = diagonal.toFixed(2);
+            setFineScaleRange(ppi);
+            
+            document.getElementById('activeDeviceBadge').innerText = activePresetName.replace(/ \([^)]*\)/, '');
+            document.getElementById('activeDiagonalBadge').innerText = diagonal.toFixed(2) + '" Layout';
+            
+            checkPresetMatch(activePresetName);
+            filterDevicePresets('');
+            resetCalipers();
+            updateDisplayValues();
+            drawAll();
+        }
+
+        function applyPreset(name) {
+            if (name === "CUSTOM_DEVICE" || name === "Custom Override Selection") {
+                checkPresetMatch("CUSTOM_DEVICE");
+                updateDiagonalFromSlider(diagonal);
+                return;
+            }
+            const found = PRESETS.find(p => p.name === name);
+            if (found) {
+                diagonal = found.diagonal;
+                customDiagonal = found.diagonal;
+                customWidth = found.wMatch;
+                customHeight = found.hMatch;
+                activePresetName = found.name;
+                scaleReferenceDiagonal = found.diagonal;
+                
+                const sw = window.screen.width || window.innerWidth;
+                const sh = window.screen.height || window.innerHeight;
+                ppi = Math.sqrt(sw*sw + sh*sh) / diagonal;
+
+                localStorage.setItem('calibrated_ruler_ppi', ppi);
+                localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+                localStorage.setItem('calibrated_ruler_presetName', activePresetName);
+
+                applySavedMetrics();
+            }
+        }
+
+        function updateDiagonalFromSlider(val) {
+            diagonal = parseFloat(val);
+            customDiagonal = diagonal;
+            document.getElementById('diagonalDisplay').value = diagonal.toFixed(2);
+            activePresetName = "Custom Overridden Size";
+            document.getElementById('deviceSearchInput').value = activePresetName;
+            
+            const sw = window.screen.width || window.innerWidth;
+            const sh = window.screen.height || window.innerHeight;
+            ppi = Math.sqrt(sw*sw + sh*sh) / diagonal;
+
+            setFineScaleRange(ppi);
+            
+            document.getElementById('activeDeviceBadge').innerText = "Custom Spec";
+            document.getElementById('activeDiagonalBadge').innerText = diagonal.toFixed(2) + '" Layout';
+
+            checkPresetMatch(activePresetName);
+            localStorage.setItem('calibrated_ruler_ppi', ppi);
+            localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+            localStorage.setItem('calibrated_ruler_presetName', activePresetName);
+            updateDisplayValues();
+            drawAll();
+        }
+
+        function updateFromMicroSlider(val) {
+            ppi = parseFloat(val);
+            document.getElementById('microScaleDisplay').value = Math.round(ppi);
+            activePresetName = "Manually Tuned Mesh";
+            document.getElementById('deviceSearchInput').value = activePresetName;
+            
+            const sw = window.screen.width || window.innerWidth;
+            const sh = window.screen.height || window.innerHeight;
+            diagonal = Math.sqrt(sw*sw + sh*sh) / ppi;
+            customDiagonal = diagonal;
+
+            document.getElementById('diagonalSlider').value = diagonal.toFixed(2);
+            document.getElementById('diagonalDisplay').value = diagonal.toFixed(2);
+            
+            document.getElementById('activeDiagonalBadge').innerText = diagonal.toFixed(2) + '" Layout';
+
+            checkPresetMatch(activePresetName);
+            localStorage.setItem('calibrated_ruler_ppi', ppi);
+            localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+            localStorage.setItem('calibrated_ruler_presetName', activePresetName);
+            updateDisplayValues();
+            drawAll();
+        }
+
+        function commitRulerScale(metric, rawValue) {
+            const isPpi = metric === 'ppi';
+            const value = parseFloat(rawValue);
+            if (!Number.isFinite(value) || value <= 0) {
+                showToast('Please enter a positive number.');
+                document.getElementById(isPpi ? 'microScaleDisplay' : 'diagonalDisplay').value =
+                    isPpi ? Math.round(ppi) : diagonal.toFixed(2);
+                return;
+            }
+
+            if (isPpi) {
+                updateFromMicroSlider(value);
+                setFineScaleRange(ppi);
+            } else {
+                updateDiagonalFromSlider(value);
+            }
+        }
+
+        function setFineScaleRange(value) {
+            const slider = document.getElementById('microSlider');
+            const reference = Math.max(0.01, scaleReferenceDiagonal);
+            slider.min = '0.01';
+            slider.max = (reference * 2).toFixed(2);
+            slider.step = '0.01';
+            slider.value = Math.max(0.01, Math.min(reference * 2, diagonal)).toFixed(2);
+            document.getElementById('microScaleDisplay').value = Math.round(ppi);
+        }
+
+        function setInchFormat(value) {
+            inchFormat = value === 'decimal' ? 'decimal' : 'fraction';
+            localStorage.setItem('calibrated_ruler_inch_format', inchFormat);
+            updateDisplayValues();
+            drawAll();
+        }
+
+        function initBubbleLevel() {
+            document.getElementById('bubbleLevelToggleRow').classList.remove('hidden');
+            // Keep a centred preview visible on desktops while the level is being designed.
+            if (!canUseBubbleLevel) {
+                document.getElementById('toggleBubbleLevel').checked = true;
+                bubbleLevelPanel.classList.remove('hidden');
+                return;
+            }
+
+            // Browsers that already permit orientation data (such as most Android
+            // browsers) enable the level as soon as a real sensor sample arrives.
+            // iPhone browsers that require a tap simply remain off until tapped.
+            window.addEventListener('deviceorientation', autoEnableBubbleLevel, true);
+            window.setTimeout(() => window.removeEventListener('deviceorientation', autoEnableBubbleLevel, true), 2000);
+        }
+
+        function autoEnableBubbleLevel(event) {
+            if (event.beta === null || event.gamma === null) return;
+            window.removeEventListener('deviceorientation', autoEnableBubbleLevel, true);
+            const toggle = document.getElementById('toggleBubbleLevel');
+            toggle.checked = true;
+            if (!bubbleLevelListening) {
+                window.addEventListener('deviceorientation', updateBubbleLevel, true);
+                bubbleLevelListening = true;
+            }
+            bubbleLevelPanel.classList.remove('hidden');
+            updateBubbleLevel(event);
+        }
+
+        async function toggleBubbleLevel(enabled) {
+            const toggle = document.getElementById('toggleBubbleLevel');
+            if (!enabled) {
+                bubbleLevelPanel.classList.add('hidden');
+                return;
+            }
+
+            // No sensor on this device: retain the centred visual preview.
+            if (!canUseBubbleLevel) {
+                bubbleLevelPanel.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // iOS requires this permission request to be initiated by the toggle tap.
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') throw new Error('permission denied');
+                }
+
+                if (!bubbleLevelListening) {
+                    window.addEventListener('deviceorientation', updateBubbleLevel, true);
+                    bubbleLevelListening = true;
+                }
+                bubbleLevelPanel.classList.remove('hidden');
+            } catch (_) {
+                toggle.checked = false;
+                bubbleLevelPanel.classList.add('hidden');
+                showToast('Motion access is needed for the bubble level.');
+            }
+        }
+
+        function resetBubbleLevelSmoothing() {
+            smoothedLevelTilt = null;
+            lastLevelSampleAt = 0;
+        }
+
+        function getScreenOrientationAngle() {
+            const angle = screen.orientation?.angle ?? window.orientation ?? 0;
+            return ((Number(angle) % 360) + 360) % 360;
+        }
+
+        function getScreenRelativeTilt(beta, gamma) {
+            // DeviceOrientation is measured in the device's portrait axes. Rotate
+            // it into the axes of the screen the person is actually looking at.
+            switch (getScreenOrientationAngle()) {
+                case 90: return { x: -beta, y: gamma };
+                case 180: return { x: gamma, y: beta };
+                case 270: return { x: beta, y: -gamma };
+                default: return { x: -gamma, y: -beta };
+            }
+        }
+
+        function updateBubbleLevel(event) {
+            if (event.beta === null || event.gamma === null) return;
+            const rawTilt = getScreenRelativeTilt(event.beta, event.gamma);
+            const now = performance.now();
+            if (!smoothedLevelTilt || now - lastLevelSampleAt > 1000) {
+                smoothedLevelTilt = rawTilt;
+            } else {
+                // Ignore the tiny sensor flutter around the current position, then
+                // respond quickly as soon as the device makes a deliberate move.
+                const deltaX = rawTilt.x - smoothedLevelTilt.x;
+                const deltaY = rawTilt.y - smoothedLevelTilt.y;
+                const targetX = Math.abs(deltaX) < 0.45 ? smoothedLevelTilt.x : rawTilt.x;
+                const targetY = Math.abs(deltaY) < 0.45 ? smoothedLevelTilt.y : rawTilt.y;
+                const largestDelta = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+                const smoothingWindow = largestDelta > 4 ? 30 : 75;
+                const blend = 1 - Math.exp(-(now - lastLevelSampleAt) / smoothingWindow);
+                smoothedLevelTilt.x += (targetX - smoothedLevelTilt.x) * blend;
+                smoothedLevelTilt.y += (targetY - smoothedLevelTilt.y) * blend;
+            }
+            lastLevelSampleAt = now;
+            const tiltX = smoothedLevelTilt.x;
+            const tiltY = smoothedLevelTilt.y;
+            const xDominant = Math.abs(tiltX) >= Math.abs(tiltY);
+            const axisTilt = xDominant ? tiltX : tiltY;
+            const degrees = Math.round(axisTilt);
+            Object.values(levelArcs).forEach(arc => arc.classList.add('hidden'));
+            let x;
+            let y;
+
+            if (Math.abs(axisTilt) > 45) {
+                // Past 45° the screen edge becomes the tube: the bubble's centre
+                // is exactly on that edge, while the other axis rolls along it.
+                const direction = xDominant
+                    ? (axisTilt > 0 ? 'right' : 'left')
+                    : (axisTilt > 0 ? 'bottom' : 'top');
+                if (xDominant) {
+                    x = direction === 'right' ? window.innerWidth : 0;
+                    y = Math.max(0, Math.min(window.innerHeight, window.innerHeight / 2 + tiltY / 45 * window.innerHeight / 2));
+                    levelArcs[direction].style.left = x + 'px';
+                    levelArcs[direction].style.top = (window.innerHeight / 2) + 'px';
+                } else {
+                    x = Math.max(0, Math.min(window.innerWidth, window.innerWidth / 2 + tiltX / 45 * window.innerWidth / 2));
+                    y = direction === 'bottom' ? window.innerHeight : 0;
+                    levelArcs[direction].style.left = (window.innerWidth / 2) + 'px';
+                    levelArcs[direction].style.top = y + 'px';
+                }
+                levelArcs[direction].classList.remove('hidden');
+                // Once the bubble is in an edge tube, its offset along that edge
+                // is the only meaningful level reading. The edge target is 0°.
+                const edgeDegrees = Math.round(xDominant ? tiltY : tiltX);
+                levelReadout.textContent = `${edgeDegrees >= 0 ? '+' : ''}${edgeDegrees}°`;
+            } else {
+                // Within 45° both axes are meaningful and the bubble rolls toward
+                // the equal-sized central alignment circle.
+                x = window.innerWidth / 2 + tiltX / 45 * window.innerWidth / 2;
+                y = window.innerHeight / 2 + tiltY / 45 * window.innerHeight / 2;
+                const xDegrees = Math.round(tiltX);
+                const yDegrees = Math.round(tiltY);
+                levelReadout.textContent = `X ${xDegrees >= 0 ? '+' : ''}${xDegrees}°\nY ${yDegrees >= 0 ? '+' : ''}${yDegrees}°`;
+            }
+
+            levelDrift.style.left = Math.max(0, Math.min(window.innerWidth, x)) + 'px';
+            levelDrift.style.top = Math.max(0, Math.min(window.innerHeight, y)) + 'px';
+            levelDrift.style.transform = 'translate(-50%, -50%)';
+
+            const vectorX = x - window.innerWidth / 2;
+            const vectorY = y - window.innerHeight / 2;
+            const needleAngle = (Math.abs(vectorX) < 0.5 && Math.abs(vectorY) < 0.5)
+                ? -90
+                : Math.atan2(vectorY, vectorX) * 180 / Math.PI;
+            const needleRadians = needleAngle * Math.PI / 180;
+            levelNeedle.style.left = `calc(50% + ${31 * Math.cos(needleRadians)}px)`;
+            levelNeedle.style.top = `calc(50% + ${31 * Math.sin(needleRadians)}px)`;
+            levelNeedle.style.transform = `translateY(-50%) rotate(${needleAngle}deg)`;
+        }
+
+        function toggleCalibration(state) { showCalibration = state; drawAll(); }
+        function toggleCaliperVisibility(state) { showCalipers = state; drawAll(); }
+        function toggleProtractor(state) {
+            showProtractor = state;
+            if (state && !protractorSelectedOnce) {
+                protractorSelectedOnce = true;
+                showCalipers = false;
+                document.getElementById('toggleCalipers').checked = false;
+            }
+            drawAll();
+        }
+        function setGridType(type) { showGrid = type; drawAll(); }
+        
+        function setTab(tab) {
+            activeTab = tab;
+            ['calibrate', 'guides', 'theme'].forEach(t => {
+                const el = document.getElementById(`tabContent-${t}`);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                if (t === tab) {
+                    el.classList.remove('hidden');
+                    btn.classList.remove('border-transparent');
+                    btn.classList.add('border-emerald-500', 'text-white');
+                } else {
+                    el.classList.add('hidden');
+                    btn.classList.remove('border-emerald-500', 'text-white');
+                    btn.classList.add('border-transparent');
+                }
+            });
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            const readoutPanel = document.getElementById('readoutPanel');
+            const card = document.getElementById('settingsCard');
+            document.body.className = "h-full overflow-hidden select-none transition-colors duration-300";
+
+            const panelBase = "hidden pointer-events-auto backdrop-blur-md border rounded-2xl p-4 shadow-2xl flex flex-col gap-2 min-w-[280px] max-w-sm transition-all duration-300";
+            const cardBase = "pointer-events-auto backdrop-blur-lg border rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-y-auto shadow-2xl flex flex-col transition-all duration-300";
+
+            let panelTheme = "";
+            let cardTheme = "";
+
+            if (theme === 'dark') {
+                document.body.classList.add('bg-neutral-950', 'text-white');
+                panelTheme = "bg-neutral-900/90 border-neutral-800 text-white";
+                cardTheme = "bg-neutral-900/95 border-neutral-800 text-white";
+            } else if (theme === 'blueprint') {
+                document.body.classList.add('blueprint', 'bg-indigo-950', 'text-indigo-100');
+                panelTheme = "bg-indigo-900/90 border-indigo-700/50 text-indigo-100";
+                cardTheme = "bg-indigo-900/95 border-indigo-700/50 text-indigo-100";
+            } else {
+                document.body.classList.add('light', 'bg-neutral-50', 'text-neutral-800');
+                panelTheme = "bg-white/95 border-neutral-200 text-neutral-800";
+                cardTheme = "bg-white/95 border-neutral-200 text-neutral-800";
+            }
+
+            readoutPanel.className = `${panelBase} ${panelTheme}`;
+            card.className = `${cardBase} ${cardTheme}`;
+
+            if (areControlsHidden) {
+                card.classList.add('translate-y-12', 'scale-95', 'opacity-0', 'pointer-events-none');
+                card.classList.remove('translate-y-0', 'scale-100', 'opacity-100');
+                readoutPanel.classList.add('opacity-0', 'pointer-events-none');
+            } else {
+                card.classList.remove('translate-y-12', 'scale-95', 'opacity-0', 'pointer-events-none');
+                card.classList.add('translate-y-0', 'scale-100', 'opacity-100');
+                readoutPanel.classList.remove('opacity-0', 'pointer-events-none');
+            }
+
+            ['dark', 'blueprint', 'light'].forEach(t => {
+                const btn = document.getElementById(`themeBtn-${t}`);
+                if (btn) {
+                    if (t === theme) {
+                        btn.classList.add('border-emerald-500');
+                        btn.classList.remove('border-transparent');
+                    } else {
+                        btn.classList.remove('border-emerald-500');
+                        btn.classList.add('border-transparent');
+                    }
+                }
+            });
+
+            drawAll();
+        }
+
+        function toggleControls() {
+            areControlsHidden = !areControlsHidden;
+            const card = document.getElementById('settingsCard');
+            const readoutPanel = document.getElementById('readoutPanel');
+            const greeting = document.getElementById('greetingContainer');
+
+            if (areControlsHidden) {
+                card.classList.add('translate-y-12', 'scale-95', 'opacity-0', 'pointer-events-none');
+                card.classList.remove('translate-y-0', 'scale-100', 'opacity-100');
+                rulerToggleIcon.style.transform = "rotate(45deg)";
+                readoutPanel.classList.add('opacity-0', 'pointer-events-none');
+                greeting.classList.add('opacity-0', 'pointer-events-none');
+            } else {
+                card.classList.remove('translate-y-12', 'scale-95', 'opacity-0', 'pointer-events-none');
+                card.classList.add('translate-y-0', 'scale-100', 'opacity-100');
+                rulerToggleIcon.style.transform = "none";
+                readoutPanel.classList.remove('opacity-0', 'pointer-events-none');
+                greeting.classList.remove('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function toggleMinimizeReadouts() {
+            const content = document.getElementById('readoutContent');
+            const restoreBtn = document.getElementById('restoreReadoutsBtn');
+            content.classList.toggle('hidden');
+            restoreBtn.classList.toggle('hidden');
+        }
+
+        function clampPointsToWindow() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const margin = 35;
+            
+            pointA.x = Math.max(margin, Math.min(w - margin, pointA.x));
+            pointA.y = Math.max(margin, Math.min(h - margin, pointA.y));
+            
+            pointB.x = Math.max(margin, Math.min(w - margin, pointB.x));
+            pointB.y = Math.max(margin, Math.min(h - margin, pointB.y));
+        }
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+            
+            clampPointsToWindow();
+        }
+
+        function resetCalipers() {
+            pointA = { x: Math.round(window.innerWidth * 0.35), y: Math.round(window.innerHeight * 0.35) };
+            pointB = { x: Math.round(window.innerWidth * 0.65), y: Math.round(window.innerHeight * 0.65) };
+            updateDisplayValues();
+            drawAll();
+        }
+
+        // The handles are ordinary buttons placed over the canvas. This avoids all
+        // canvas hit-testing ambiguity: a pressed handle owns its pointer until release.
+        function syncCaliperHandles() {
+            const handles = [[caliperHandleA, pointA], [caliperHandleB, pointB]];
+            handles.forEach(([handle, point]) => {
+                handle.style.left = point.x + 'px';
+                handle.style.top = point.y + 'px';
+                handle.classList.toggle('hidden', !showCalipers);
+            });
+
+            const guides = [
+                [caliperGuideAX, pointA.x, 'left'], [caliperGuideAY, pointA.y, 'top'],
+                [caliperGuideBX, pointB.x, 'left'], [caliperGuideBY, pointB.y, 'top']
+            ];
+            guides.forEach(([guide, coordinate, property]) => {
+                guide.style[property] = coordinate + 'px';
+                guide.classList.toggle('hidden', !showCalipers);
+            });
+        }
+
+        function getProtractorGeometry() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const vertical = h > w;
+            const radius = vertical
+                ? Math.max(92, Math.min(h * 0.42, w * 0.62, 390))
+                : Math.max(92, Math.min(w * 0.42, h * 0.36, 270));
+            const cx = vertical ? 0 : w / 2;
+            const cy = vertical ? h / 2 : h;
+            return { radius, cx, cy, vertical };
+        }
+
+        function getProtractorGuidePoint(angle) {
+            const { radius, cx, cy, vertical } = getProtractorGeometry();
+            const radians = angle * Math.PI / 180;
+            return vertical
+                ? { x: cx + Math.sin(radians) * radius, y: cy + Math.cos(radians) * radius }
+                : { x: cx + Math.cos(radians) * radius, y: cy - Math.sin(radians) * radius };
+        }
+
+        function syncProtractorHandles() {
+            [[protractorHandleA, protractorAngleA], [protractorHandleB, protractorAngleB]].forEach(([handle, angle]) => {
+                const point = getProtractorGuidePoint(angle);
+                handle.style.left = point.x + 'px';
+                handle.style.top = point.y + 'px';
+                handle.classList.toggle('hidden', !showProtractor);
+            });
+        }
+
+        function beginCaliperDrag(which, e) {
+            if (!showCalipers || activePointerId !== null) return;
+            activePoint = which;
+            activePointerId = e.pointerId;
+            caliperDraggedThisInteraction = false;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            e.preventDefault();
+            e.stopPropagation();
+            drawAll();
+        }
+
+        function moveCaliperDrag(e) {
+            if (!activePoint || e.pointerId !== activePointerId) return;
+            const point = activePoint.startsWith('A') ? pointA : pointB;
+            if (activePoint.endsWith('BOTH') || activePoint.endsWith('_X')) {
+                point.x = Math.max(0, Math.min(window.innerWidth, e.clientX));
+            }
+            if (activePoint.endsWith('BOTH') || activePoint.endsWith('_Y')) {
+                point.y = Math.max(0, Math.min(window.innerHeight, e.clientY));
+            }
+            caliperDraggedThisInteraction = true;
+            e.preventDefault();
+            updateDisplayValues();
+            drawAll();
+        }
+
+        function finishCaliperDrag(e) {
+            if (!activePoint || e.pointerId !== activePointerId) return;
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+            activePoint = null;
+            activePointerId = null;
+            if (caliperDraggedThisInteraction) {
+                ignoreNextClick = true;
+                setTimeout(() => { ignoreNextClick = false; }, 150);
+            }
+            drawAll();
+        }
+
+        function nudgeCaliper(which, e) {
+            const offsets = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+            if (!offsets[e.key]) return;
+            const point = which.startsWith('A') ? pointA : pointB;
+            const step = e.shiftKey ? 10 : 1;
+            if (which.endsWith('BOTH') || which.endsWith('_X')) {
+                point.x = Math.max(0, Math.min(window.innerWidth, point.x + offsets[e.key][0] * step));
+            }
+            if (which.endsWith('BOTH') || which.endsWith('_Y')) {
+                point.y = Math.max(0, Math.min(window.innerHeight, point.y + offsets[e.key][1] * step));
+            }
+            e.preventDefault();
+            updateDisplayValues();
+            drawAll();
+        }
+
+        function beginProtractorDrag(which, e) {
+            if (!showProtractor || activeProtractorPointerId !== null) return;
+            activeProtractorGuide = which;
+            activeProtractorPointerId = e.pointerId;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function moveProtractorDrag(e) {
+            if (!activeProtractorGuide || e.pointerId !== activeProtractorPointerId) return;
+            const { cx, cy, vertical } = getProtractorGeometry();
+            const angle = vertical
+                ? Math.atan2(Math.max(0, e.clientX - cx), e.clientY - cy) * 180 / Math.PI
+                : Math.atan2(Math.max(0, cy - e.clientY), e.clientX - cx) * 180 / Math.PI;
+            if (activeProtractorGuide === 'A') protractorAngleA = Math.round(angle);
+            else protractorAngleB = Math.round(angle);
+            e.preventDefault();
+            drawAll();
+        }
+
+        function finishProtractorDrag(e) {
+            if (!activeProtractorGuide || e.pointerId !== activeProtractorPointerId) return;
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+            activeProtractorGuide = null;
+            activeProtractorPointerId = null;
+            drawAll();
+        }
+
+        function nudgeProtractor(which, e) {
+            if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+            const step = e.shiftKey ? 10 : 1;
+            const change = e.key === 'ArrowLeft' ? step : -step;
+            if (which === 'A') protractorAngleA = Math.max(0, Math.min(180, protractorAngleA + change));
+            else protractorAngleB = Math.max(0, Math.min(180, protractorAngleB + change));
+            e.preventDefault();
+            drawAll();
+        }
+
+        [[caliperHandleA, 'A_BOTH'], [caliperHandleB, 'B_BOTH']].forEach(([handle, which]) => {
+            handle.addEventListener('pointerdown', e => beginCaliperDrag(which, e));
+            handle.addEventListener('pointermove', moveCaliperDrag);
+            handle.addEventListener('pointerup', finishCaliperDrag);
+            handle.addEventListener('pointercancel', finishCaliperDrag);
+            handle.addEventListener('keydown', e => nudgeCaliper(which, e));
+        });
+
+        [[caliperGuideAX, 'A_X'], [caliperGuideAY, 'A_Y'], [caliperGuideBX, 'B_X'], [caliperGuideBY, 'B_Y']].forEach(([guide, which]) => {
+            guide.addEventListener('pointerdown', e => beginCaliperDrag(which, e));
+            guide.addEventListener('pointermove', moveCaliperDrag);
+            guide.addEventListener('pointerup', finishCaliperDrag);
+            guide.addEventListener('pointercancel', finishCaliperDrag);
+            guide.addEventListener('keydown', e => nudgeCaliper(which, e));
+        });
+
+        [[protractorHandleA, 'A'], [protractorHandleB, 'B']].forEach(([handle, which]) => {
+            handle.addEventListener('pointerdown', e => beginProtractorDrag(which, e));
+            handle.addEventListener('pointermove', moveProtractorDrag);
+            handle.addEventListener('pointerup', finishProtractorDrag);
+            handle.addEventListener('pointercancel', finishProtractorDrag);
+            handle.addEventListener('keydown', e => nudgeProtractor(which, e));
+        });
+
+        function updateDisplayValues() {
+            const ppm = ppi / 25.4;
+            const dx = Math.abs(pointA.x - pointB.x);
+            const dy = Math.abs(pointA.y - pointB.y);
+
+            document.getElementById('caliperX_mm').innerText = Math.round(dx / ppm) + ' mm';
+            document.getElementById('caliperX_in').innerText = formatInches(dx / ppi);
+            document.getElementById('caliperY_mm').innerText = Math.round(dy / ppm) + ' mm';
+            document.getElementById('caliperY_in').innerText = formatInches(dy / ppi);
+        }
+
+        function formatInches(value) {
+            if (inchFormat === 'decimal') return value.toFixed(2) + '"';
+
+            const denominator = 16;
+            let whole = Math.floor(value);
+            let numerator = Math.round((value - whole) * denominator);
+            if (numerator === denominator) { whole += 1; numerator = 0; }
+            if (!numerator) return whole + '"';
+
+            const gcd = (a, b) => b ? gcd(b, a % b) : a;
+            const divisor = gcd(numerator, denominator);
+            const fraction = `${numerator / divisor}/${denominator / divisor}`;
+            return (whole ? `${whole}-${fraction}` : fraction) + '"';
+        }
+
+        function drawAll() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            ctx.clearRect(0, 0, w, h);
+
+            let bgColor = '#000000', lineMajor = 'rgba(255,255,255,0.4)', lineMinor = 'rgba(255,255,255,0.25)', lineSub = 'rgba(255,255,255,0.1)';
+            let labelC = '#e5e5e5', gridMaj = 'rgba(16,185,129,0.05)', gridMin = 'rgba(16,185,129,0.02)';
+
+            if (currentTheme === 'blueprint') {
+                bgColor = '#0a192f'; lineMajor = 'rgba(255,255,255,0.5)'; lineMinor = 'rgba(255,255,255,0.3)'; lineSub = 'rgba(255,255,255,0.15)';
+                labelC = '#fff'; gridMaj = 'rgba(6,182,212,0.15)'; gridMin = 'rgba(6,182,212,0.04)';
+            } else if (currentTheme === 'light') {
+                bgColor = '#ffffff'; lineMajor = 'rgba(0,0,0,0.6)'; lineMinor = 'rgba(0,0,0,0.4)'; lineSub = 'rgba(0,0,0,0.2)';
+                labelC = '#171717'; gridMaj = 'rgba(37,99,235,0.06)'; gridMin = 'rgba(37,99,235,0.02)';
+            }
+
+            ctx.fillStyle = bgColor; ctx.fillRect(0, 0, w, h);
+            drawRulerGrid(w, h, gridMaj, gridMin);
+            drawReferenceOutline(w, h);
+            drawBoundaryMarkings(w, h, lineMajor, lineMinor, lineSub, labelC);
+            if (showCalipers) drawCrosshairCalipers(w, h);
+            if (showProtractor) drawProtractorOverlay(w, h);
+            syncCaliperHandles();
+            syncProtractorHandles();
+        }
+
+        function drawProtractorOverlay(w, h) {
+            const { radius, cx, cy, vertical } = getProtractorGeometry();
+            const scale = currentTheme === 'light' ? 'rgba(82,82,91,0.9)' : 'rgba(212,212,216,0.78)';
+            const minor = currentTheme === 'light' ? 'rgba(82,82,91,0.5)' : 'rgba(212,212,216,0.44)';
+            const fill = currentTheme === 'light' ? 'rgba(82,82,91,0.045)' : 'rgba(212,212,216,0.06)';
+            const colorA = currentTheme === 'light' ? '#059669' : '#10b981';
+            const colorB = currentTheme === 'light' ? '#d97706' : '#f59e0b';
+            const deltaColor = currentTheme === 'light' ? '#3f3f46' : '#e4e4e7';
+            const pointAt = (degree, distance = radius) => {
+                const radians = degree * Math.PI / 180;
+                return vertical
+                    ? { x: cx + Math.sin(radians) * distance, y: cy + Math.cos(radians) * distance }
+                    : { x: cx + Math.cos(radians) * distance, y: cy - Math.sin(radians) * distance };
+            };
+            const edgePointAt = degree => {
+                const unit = pointAt(degree, 1);
+                const dx = unit.x - cx;
+                const dy = unit.y - cy;
+                const distances = [];
+                if (dx > 0) distances.push((w - cx) / dx);
+                if (dx < 0) distances.push(-cx / dx);
+                if (dy > 0) distances.push((h - cy) / dy);
+                if (dy < 0) distances.push(-cy / dy);
+                const distance = Math.min(...distances.filter(value => value > 0));
+                return { x: cx + dx * distance, y: cy + dy * distance };
+            };
+            const drawArc = (from, to, distance) => {
+                const first = pointAt(from, distance);
+                ctx.beginPath();
+                ctx.moveTo(first.x, first.y);
+                for (let degree = from + 1; degree <= to; degree++) {
+                    const point = pointAt(degree, distance);
+                    ctx.lineTo(point.x, point.y);
+                }
+            };
+            const drawArcLabel = (from, to, arcRadius, color, label) => {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                drawArc(from, to, arcRadius);
+                ctx.stroke();
+                const middle = (from + to) / 2;
+                const point = pointAt(middle, arcRadius + 11);
+                ctx.font = 'bold 10px monospace';
+                const textWidth = ctx.measureText(label).width;
+                ctx.fillStyle = currentTheme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.78)';
+                ctx.fillRect(point.x - textWidth / 2 - 3, point.y - 7, textWidth + 6, 14);
+                ctx.fillStyle = color;
+                ctx.fillText(label, point.x, point.y);
+            };
+
+            ctx.save();
+            ctx.fillStyle = fill;
+            drawArc(0, 180, radius);
+            ctx.lineTo(cx, cy);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = scale;
+            ctx.lineWidth = 1.5;
+            drawArc(0, 180, radius);
+            ctx.stroke();
+            ctx.setLineDash([5, 4]);
+            const zeroPoint = pointAt(0);
+            const endPoint = pointAt(180);
+            ctx.beginPath();
+            ctx.moveTo(zeroPoint.x, zeroPoint.y);
+            ctx.lineTo(endPoint.x, endPoint.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let degree = 0; degree <= 180; degree++) {
+                const major = degree % 10 === 0;
+                const mid = degree % 5 === 0;
+                const tickLength = major ? 13 : (mid ? 9 : 5);
+                const outer = pointAt(degree);
+                const inner = pointAt(degree, radius - tickLength);
+                ctx.strokeStyle = major ? scale : minor;
+                ctx.lineWidth = major ? 1.25 : 0.75;
+                ctx.beginPath();
+                ctx.moveTo(outer.x, outer.y);
+                ctx.lineTo(inner.x, inner.y);
+                ctx.stroke();
+                if (major) {
+                    const labelPoint = pointAt(degree, radius - 25);
+                    ctx.fillStyle = scale;
+                    ctx.fillText(String(degree), labelPoint.x, labelPoint.y);
+                }
+            }
+
+            // The grey scale stays neutral; the two coloured guides run to the
+            // screen edge and use the calipers' crosshair handle treatment.
+            [[protractorAngleA, colorA, 'A'], [protractorAngleB, colorB, 'B']].forEach(([degree, color, name]) => {
+                const point = pointAt(degree);
+                const edge = edgePointAt(degree);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = activeProtractorGuide === name ? 1.25 : 0.75;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(edge.x, edge.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Match the caliper points: crosshair, solid centre, and outer ring.
+                ctx.beginPath();
+                ctx.moveTo(point.x - 20, point.y); ctx.lineTo(point.x + 20, point.y);
+                ctx.moveTo(point.x, point.y - 20); ctx.lineTo(point.x, point.y + 20);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = activeProtractorGuide === name ? '#ffffff' : color;
+                ctx.fill();
+                ctx.lineWidth = activeProtractorGuide === name ? 2 : 1.5;
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+                ctx.stroke();
+                if (activeProtractorGuide === name) {
+                    ctx.strokeStyle = color + '33';
+                    ctx.lineWidth = 8;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 18, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = currentTheme === 'light' ? '#ffffff' : '#111111';
+                ctx.font = 'bold 9px monospace';
+                ctx.fillStyle = currentTheme === 'light' ? '#171717' : '#ffffff';
+                ctx.font = 'bold 10px system-ui, sans-serif';
+                ctx.fillText(name, point.x + 16, point.y - 14);
+            });
+
+            const difference = Math.abs(protractorAngleA - protractorAngleB);
+            drawArcLabel(0, protractorAngleA, radius * 0.28, colorA, `A ${protractorAngleA}°`);
+            drawArcLabel(0, protractorAngleB, radius * 0.42, colorB, `B ${protractorAngleB}°`);
+            drawArcLabel(Math.min(protractorAngleA, protractorAngleB), Math.max(protractorAngleA, protractorAngleB), radius * 0.56, deltaColor, `A-B ${difference}°`);
+
+            ctx.strokeStyle = scale;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx - 9, cy); ctx.lineTo(cx + 9, cy);
+            ctx.moveTo(cx, cy - 9); ctx.lineTo(cx, cy + 9);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+            ctx.fillStyle = scale;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawRulerGrid(w, h, majorC, minorC) {
+            if (showGrid === 'none') return;
+            const ppm = ppi / 25.4;
+            ctx.save();
+            ctx.lineWidth = 0.5;
+            
+            if (showGrid === 'metric' || showGrid === 'both') {
+                ctx.strokeStyle = minorC;
+                for (let x = 0; x < w; x += 5 * ppm) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y < h; y += 5 * ppm) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                ctx.strokeStyle = majorC; ctx.lineWidth = 1;
+                for (let x = 0; x < w; x += 10 * ppm) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y < h; y += 10 * ppm) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+            }
+            if (showGrid === 'imperial' || showGrid === 'both') {
+                ctx.strokeStyle = minorC; ctx.lineWidth = 0.5;
+                for (let x = 0; x < w; x += ppi / 4) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y < h; y += ppi / 4) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                ctx.strokeStyle = majorC; ctx.lineWidth = 1;
+                for (let x = 0; x < w; x += ppi) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y < h; y += ppi) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+            }
+            ctx.restore();
+        }
+
+        function drawReferenceOutline(w, h) {
+            if (!showCalibration) return;
+            const ppm = ppi / 25.4;
+            const cardW = 85.60 * ppm, cardH = 53.98 * ppm;
+            const topCentreY = Math.min(
+                h - cardW / 2 - 20,
+                Math.max(cardW / 2 + 20, h * 0.22)
+            );
+            ctx.save();
+            ctx.strokeStyle = currentTheme === 'light' ? '#be185d' : (currentTheme === 'blueprint' ? '#fbbf24' : '#ec4899');
+            ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+            ctx.translate(w / 2, topCentreY);
+            ctx.rotate(Math.PI / 2);
+            if(ctx.roundRect) ctx.roundRect(-cardW/2, -cardH/2, cardW, cardH, 3.18 * ppm);
+            else ctx.rect(-cardW/2, -cardH/2, cardW, cardH);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawBoundaryMarkings(w, h, majorC, minorC, subMinorC, labelC) {
+            const ppm = ppi / 25.4;
+            ctx.save(); ctx.font = '9px monospace'; ctx.fillStyle = labelC; ctx.lineWidth = 1;
+
+            // TOP boundary (metric)
+            for (let mm = 0; mm <= w / ppm; mm++) {
+                let x = mm * ppm;
+                if (mm % 10 === 0) { ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 18); ctx.stroke(); if(mm>0&&x<w-10){ctx.textAlign='center'; ctx.fillText(mm/10, x, 28);} }
+                else if (mm % 5 === 0) { ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 12); ctx.stroke(); }
+                else { ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 7); ctx.stroke(); }
+            }
+            // LEFT boundary (metric)
+            for (let mm = 0; mm <= h / ppm; mm++) {
+                let y = mm * ppm;
+                if (mm % 10 === 0) { ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(18, y); ctx.stroke(); if(mm>0&&y<h-10){ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(mm/10, 22, y);} }
+                else if (mm % 5 === 0) { ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(12, y); ctx.stroke(); }
+                else { ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(7, y); ctx.stroke(); }
+            }
+
+            // BOTTOM boundary (imperial - 1/16th divisions)
+            const totalSixteenthsX = Math.floor(w / (ppi / 16));
+            for (let i = 0; i <= totalSixteenthsX; i++) {
+                const x = i * (ppi / 16);
+                if (i % 16 === 0) {
+                    ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 18); ctx.stroke();
+                    if (i > 0 && x < w - 15) {
+                        ctx.textAlign = 'center'; ctx.fillText((i / 16) + '"', x, h - 22);
+                    }
+                } else if (i % 8 === 0) {
+                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 12); ctx.stroke();
+                } else if (i % 4 === 0) {
+                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 9); ctx.stroke();
+                } else {
+                    ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 5); ctx.stroke();
+                }
+            }
+
+            // RIGHT boundary (imperial - 1/16th divisions)
+            const totalSixteenthsY = Math.floor(h / (ppi / 16));
+            for (let i = 0; i <= totalSixteenthsY; i++) {
+                const y = i * (ppi / 16);
+                if (i % 16 === 0) {
+                    ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 18, y); ctx.stroke();
+                    if (i > 0 && y < h - 15) {
+                        ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText((i / 16) + '"', w - 22, y);
+                    }
+                } else if (i % 8 === 0) {
+                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 12, y); ctx.stroke();
+                } else if (i % 4 === 0) {
+                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 9, y); ctx.stroke();
+                } else {
+                    ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 5, y); ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawCrosshairCalipers(w, h) {
+            let colorA = '#10b981'; // Green caliper (Point A)
+            let colorB = '#f59e0b'; // Yellow caliper (Point B)
+            if (currentTheme === 'light') {
+                colorA = '#059669';
+                colorB = '#d97706';
+            }
+
+            const dx = Math.abs(pointA.x - pointB.x);
+            const dy = Math.abs(pointA.y - pointB.y);
+            const minX = Math.min(pointA.x, pointB.x);
+            const maxX = Math.max(pointA.x, pointB.x);
+            const minY = Math.min(pointA.y, pointB.y);
+            const maxY = Math.max(pointA.y, pointB.y);
+
+            const ppm = ppi / 25.4;
+
+            // Horizontal measurement lines (Line 1: Green Metric, Line 2: Yellow Imperial)
+            const mmX = dx / ppm;
+            const hLineY1 = minY - 30;
+            ctx.save();
+            ctx.strokeStyle = colorA;
+            ctx.lineWidth = activePoint === 'A_Y' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
+            ctx.beginPath();
+            ctx.moveTo(minX, hLineY1); ctx.lineTo(maxX, hLineY1);
+            ctx.moveTo(minX, hLineY1 - 5); ctx.lineTo(minX, hLineY1 + 5);
+            ctx.moveTo(maxX, hLineY1 - 5); ctx.lineTo(maxX, hLineY1 + 5);
+            ctx.stroke();
+
+            ctx.font = 'bold 10px monospace';
+            const labelX_mm = `${Math.round(mmX)} mm`;
+            const textW_mm = ctx.measureText(labelX_mm).width;
+            ctx.fillStyle = currentTheme === 'light' ? '#ffffff' : '#000000';
+            ctx.fillRect(minX + dx/2 - textW_mm/2 - 4, hLineY1 - 7, textW_mm + 8, 14);
+            ctx.fillStyle = colorA;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(labelX_mm, minX + dx/2, hLineY1);
+            ctx.restore();
+
+            const inX = dx / ppi;
+            const hLineY2 = maxY + 30;
+            ctx.save();
+            ctx.strokeStyle = colorB;
+            ctx.lineWidth = activePoint === 'B_Y' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
+            ctx.beginPath();
+            ctx.moveTo(minX, hLineY2); ctx.lineTo(maxX, hLineY2);
+            ctx.moveTo(minX, hLineY2 - 5); ctx.lineTo(minX, hLineY2 + 5);
+            ctx.moveTo(maxX, hLineY2 - 5); ctx.lineTo(maxX, hLineY2 + 5);
+            ctx.stroke();
+
+            const labelX_in = formatInches(inX);
+            const textW_in = ctx.measureText(labelX_in).width;
+            ctx.fillStyle = currentTheme === 'light' ? '#ffffff' : '#000000';
+            ctx.fillRect(minX + dx/2 - textW_in/2 - 4, hLineY2 - 7, textW_in + 8, 14);
+            ctx.fillStyle = colorB;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(labelX_in, minX + dx/2, hLineY2);
+            ctx.restore();
+
+            // Vertical measurement lines (Line 1: Green Metric, Line 2: Yellow Imperial)
+            const mmY = dy / ppm;
+            const vLineX1 = minX - 30;
+            ctx.save();
+            ctx.strokeStyle = colorA;
+            ctx.lineWidth = activePoint === 'A_X' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
+            ctx.beginPath();
+            ctx.moveTo(vLineX1, minY); ctx.lineTo(vLineX1, maxY);
+            ctx.moveTo(vLineX1 - 5, minY); ctx.lineTo(vLineX1 + 5, minY);
+            ctx.moveTo(vLineX1 - 5, maxY); ctx.lineTo(vLineX1 + 5, maxY);
+            ctx.stroke();
+
+            const labelY_mm = `${Math.round(mmY)} mm`;
+            const textW_Ymm = ctx.measureText(labelY_mm).width;
+            ctx.fillStyle = currentTheme === 'light' ? '#ffffff' : '#000000';
+            ctx.fillRect(vLineX1 - textW_Ymm/2 - 4, minY + dy/2 - 7, textW_Ymm + 8, 14);
+            ctx.fillStyle = colorA;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(labelY_mm, vLineX1, minY + dy/2);
+            ctx.restore();
+
+            const inY = dy / ppi;
+            const vLineX2 = maxX + 30;
+            ctx.save();
+            ctx.strokeStyle = colorB;
+            ctx.lineWidth = activePoint === 'B_X' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
+            ctx.beginPath();
+            ctx.moveTo(vLineX2, minY); ctx.lineTo(vLineX2, maxY);
+            ctx.moveTo(vLineX2 - 5, minY); ctx.lineTo(vLineX2 + 5, minY);
+            ctx.moveTo(vLineX2 - 5, maxY); ctx.lineTo(vLineX2 + 5, maxY);
+            ctx.stroke();
+
+            const labelY_in = formatInches(inY);
+            const textW_Yin = ctx.measureText(labelY_in).width;
+            ctx.fillStyle = currentTheme === 'light' ? '#ffffff' : '#000000';
+            ctx.fillRect(vLineX2 - textW_Yin/2 - 4, minY + dy/2 - 7, textW_Yin + 8, 14);
+            ctx.fillStyle = colorB;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(labelY_in, vLineX2, minY + dy/2);
+            ctx.restore();
+
+            // Caliper Crosshair Point Markers
+            const points = [
+                { item: pointA, name: 'A', isActive: activePoint && activePoint.startsWith('A'), color: colorA },
+                { item: pointB, name: 'B', isActive: activePoint && activePoint.startsWith('B'), color: colorB }
+            ];
+
+            points.forEach(p => {
+                ctx.save();
+                
+                // Track hairlines
+                ctx.strokeStyle = currentTheme === 'light'
+                    ? (p.isActive ? 'rgba(0,0,0,0.48)' : 'rgba(0,0,0,0.26)')
+                    : (p.isActive ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.18)');
+                ctx.lineWidth = p.isActive ? 1.25 : 0.75;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(p.item.x, 0); ctx.lineTo(p.item.x, h);
+                ctx.moveTo(0, p.item.y); ctx.lineTo(w, p.item.y);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = p.isActive ? 2.5 : 1.5;
+                ctx.beginPath();
+                ctx.moveTo(p.item.x - 20, p.item.y); ctx.lineTo(p.item.x + 20, p.item.y);
+                ctx.moveTo(p.item.x, p.item.y - 20); ctx.lineTo(p.item.x, p.item.y + 20);
+                ctx.stroke();
+
+                ctx.fillStyle = p.isActive ? '#ffffff' : p.color;
+                ctx.beginPath();
+                ctx.arc(p.item.x, p.item.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = p.isActive ? 2 : 1.5;
+                ctx.beginPath();
+                ctx.arc(p.item.x, p.item.y, 12, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Highlighted touch boundary rings when active
+                if (p.isActive) {
+                    ctx.strokeStyle = p.color + '33';
+                    ctx.lineWidth = 8;
+                    ctx.beginPath();
+                    ctx.arc(p.item.x, p.item.y, 18, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = currentTheme === 'light' ? '#171717' : '#ffffff';
+                ctx.font = 'bold 10px system-ui, sans-serif';
+                ctx.fillText(p.name, p.item.x + 16, p.item.y - 14);
+
+                ctx.restore();
+            });
+
+            ctx.save();
+            ctx.strokeStyle = currentTheme === 'light' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pointA.x, pointA.y, pointB.x - pointA.x, pointB.y - pointA.y);
+            ctx.restore();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.replace('opacity-0', 'opacity-100');
+            setTimeout(() => toast.classList.replace('opacity-100', 'opacity-0'), 3000);
+        }
+    </script>
+</body>
+</html>
