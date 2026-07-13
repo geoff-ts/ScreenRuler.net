@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>High-Precision Screen Grid Ruler</title>
+    <title>Screen Ruler</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="ruler-config.js"></script>
+    <script src="device-presets.js"></script>
     <style>
         body, canvas {
             touch-action: none;
@@ -436,94 +437,12 @@ Y +0°</span>
     </div>
 
     <script>
-        const PRESETS = [
-            // MOTOROLA
-            { name: "Motorola Edge 40 / Pro (6.55\")", diagonal: 6.55, wMatch: 1080, hMatch: 2400 },
-            { name: "Motorola Edge 50 Ultra / Pro (6.7\")", diagonal: 6.7, wMatch: 1220, hMatch: 2712 },
-            { name: "Motorola Edge (2023) (6.6\")", diagonal: 6.6, wMatch: 1080, hMatch: 2400 },
-            { name: "Motorola Moto G Power 5G (2024) (6.7\")", diagonal: 6.7, wMatch: 1080, hMatch: 2400 },
-            { name: "Motorola Moto G Stylus 5G (2024) (6.7\")", diagonal: 6.7, wMatch: 1080, hMatch: 2400 },
-            { name: "Motorola Moto G Play (2024) (6.5\")", diagonal: 6.5, wMatch: 720, hMatch: 1600 },
-            { name: "Motorola Razr Foldable (6.9\")", diagonal: 6.9, wMatch: 1080, hMatch: 2640 },
-
-            // APPLE IPHONE
-            { name: "iPhone 15 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1290, hMatch: 2796 },
-            { name: "iPhone 15 Pro (6.1\")", diagonal: 6.1, wMatch: 1179, hMatch: 2556 },
-            { name: "iPhone 15 Plus (6.7\")", diagonal: 6.7, wMatch: 1290, hMatch: 2796 },
-            { name: "iPhone 15 (6.1\")", diagonal: 6.1, wMatch: 1179, hMatch: 2556 },
-            { name: "iPhone 14 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1290, hMatch: 2796 },
-            { name: "iPhone 14 Pro (6.1\")", diagonal: 6.1, wMatch: 1179, hMatch: 2556 },
-            { name: "iPhone 14 Plus (6.7\")", diagonal: 6.7, wMatch: 1284, hMatch: 2778 },
-            { name: "iPhone 14 (6.1\")", diagonal: 6.1, wMatch: 1170, hMatch: 2532 },
-            { name: "iPhone 13 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1284, hMatch: 2778 },
-            { name: "iPhone 13 / 13 Pro (6.1\")", diagonal: 6.1, wMatch: 1170, hMatch: 2532 },
-            { name: "iPhone 13 mini (5.4\")", diagonal: 5.4, wMatch: 1080, hMatch: 2340 },
-            { name: "iPhone 12 Pro Max (6.7\")", diagonal: 6.7, wMatch: 1284, hMatch: 2778 },
-            { name: "iPhone 12 / 12 Pro (6.1\")", diagonal: 6.1, wMatch: 1170, hMatch: 2532 },
-            { name: "iPhone 11 Pro Max (6.5\")", diagonal: 6.5, wMatch: 1242, hMatch: 2688 },
-            { name: "iPhone 11 (6.1\")", diagonal: 6.1, wMatch: 828, hMatch: 1792 },
-            { name: "iPhone SE (3rd Gen) (4.7\")", diagonal: 4.7, wMatch: 750, hMatch: 1334 },
-            { name: "iPhone XR (6.1\")", diagonal: 6.1, wMatch: 828, hMatch: 1792 },
-
-            // SAMSUNG GALAXY
-            { name: "Samsung Galaxy S24 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3120 },
-            { name: "Samsung Galaxy S24+ (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3120 },
-            { name: "Samsung Galaxy S24 (6.2\")", diagonal: 6.2, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy S23 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3088 },
-            { name: "Samsung Galaxy S23+ (6.6\")", diagonal: 6.6, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy S23 (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy S22 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3088 },
-            { name: "Samsung Galaxy S22 (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy S21 Ultra (6.8\")", diagonal: 6.8, wMatch: 1440, hMatch: 3200 },
-            { name: "Samsung Galaxy S21 (6.2\")", diagonal: 6.2, wMatch: 1080, hMatch: 2400 },
-            { name: "Samsung Galaxy A54 5G (6.4\")", diagonal: 6.4, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy A35 5G (6.6\")", diagonal: 6.6, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy A15 5G (6.5\")", diagonal: 6.5, wMatch: 1080, hMatch: 2340 },
-            { name: "Samsung Galaxy A03s (6.5\")", diagonal: 6.5, wMatch: 720, hMatch: 1600 },
-            { name: "Samsung Galaxy Z Fold 5 (7.6\")", diagonal: 7.6, wMatch: 1812, hMatch: 2176 },
-            { name: "Samsung Galaxy Z Flip 5 (6.7\")", diagonal: 6.7, wMatch: 1080, hMatch: 2640 },
-
-            // GOOGLE PIXEL
-            { name: "Google Pixel 8 Pro (6.7\")", diagonal: 6.7, wMatch: 1344, hMatch: 2992 },
-            { name: "Google Pixel 8 (6.2\")", diagonal: 6.2, wMatch: 1080, hMatch: 2400 },
-            { name: "Google Pixel 8a (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2400 },
-            { name: "Google Pixel 7 Pro (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3120 },
-            { name: "Google Pixel 7 (6.3\")", diagonal: 6.3, wMatch: 1080, hMatch: 2400 },
-            { name: "Google Pixel 7a (6.1\")", diagonal: 6.1, wMatch: 1080, hMatch: 2400 },
-            { name: "Google Pixel 6 Pro (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3120 },
-            { name: "Google Pixel 6 (6.4\")", diagonal: 6.4, wMatch: 1080, hMatch: 2400 },
-
-            // ONEPLUS
-            { name: "OnePlus 12 (6.82\")", diagonal: 6.82, wMatch: 1440, hMatch: 3168 },
-            { name: "OnePlus 12R (6.78\")", diagonal: 6.78, wMatch: 1264, hMatch: 2780 },
-            { name: "OnePlus 11 5G (6.7\")", diagonal: 6.7, wMatch: 1440, hMatch: 3216 },
-            { name: "OnePlus Nord N30 5G (6.72\")", diagonal: 6.72, wMatch: 1080, hMatch: 2400 },
-
-            // TABLETS & MONITORS
-            { name: "iPad Pro 12.9\" Tablet (12.9\")", diagonal: 12.9, wMatch: 2048, hMatch: 2732 },
-            { name: "iPad Pro 11\" Tablet (11.0\")", diagonal: 11.0, wMatch: 1668, hMatch: 2420 },
-            { name: "iPad Air 10.9\" Tablet (10.9\")", diagonal: 10.9, wMatch: 1640, hMatch: 2360 },
-            { name: "Standard Full HD Monitor (24\")", diagonal: 24.0, wMatch: 1920, hMatch: 1080 },
-            { name: "Standard QHD Monitor (27\")", diagonal: 27.0, wMatch: 2560, hMatch: 1440 },
-            { name: "Standard 4K Monitor (27\")", diagonal: 27.0, wMatch: 3840, hMatch: 2160 }
-        ];
-
-        // Android Chromium exposes the model only through User-Agent Client Hints.
-        // iPhone browsers intentionally do not identify the model, so their physical
-        // pixel resolution and DPR remain the useful fingerprint there.
-        const MODEL_TO_PRESET = [
-            ['SM-S928', 'Samsung Galaxy S24 Ultra (6.8\")'], ['SM-S926', 'Samsung Galaxy S24+ (6.7\")'], ['SM-S921', 'Samsung Galaxy S24 (6.2\")'],
-            ['SM-S918', 'Samsung Galaxy S23 Ultra (6.8\")'], ['SM-S916', 'Samsung Galaxy S23+ (6.6\")'], ['SM-S911', 'Samsung Galaxy S23 (6.1\")'],
-            ['SM-S908', 'Samsung Galaxy S22 Ultra (6.8\")'], ['SM-S901', 'Samsung Galaxy S22 (6.1\")'], ['SM-G998', 'Samsung Galaxy S21 Ultra (6.8\")'],
-            ['SM-G991', 'Samsung Galaxy S21 (6.2\")'], ['SM-A546', 'Samsung Galaxy A54 5G (6.4\")'], ['SM-A356', 'Samsung Galaxy A35 5G (6.6\")'],
-            ['SM-A156', 'Samsung Galaxy A15 5G (6.5\")'], ['PIXEL 8 PRO', 'Google Pixel 8 Pro (6.7\")'], ['PIXEL 8A', 'Google Pixel 8a (6.1\")'],
-            ['PIXEL 8', 'Google Pixel 8 (6.2\")'], ['PIXEL 7 PRO', 'Google Pixel 7 Pro (6.7\")'], ['PIXEL 7A', 'Google Pixel 7a (6.1\")'],
-            ['PIXEL 7', 'Google Pixel 7 (6.3\")'], ['PIXEL 6 PRO', 'Google Pixel 6 Pro (6.7\")'], ['PIXEL 6', 'Google Pixel 6 (6.4\")'],
-            ['CPH2573', 'OnePlus 12 (6.82\")'], ['CPH2585', 'OnePlus 12R (6.78\")'], ['CPH2449', 'OnePlus 11 5G (6.7\")'],
-            ['MOTOROLA EDGE 40', 'Motorola Edge 40 / Pro (6.55\")'], ['MOTOROLA EDGE 50', 'Motorola Edge 50 Ultra / Pro (6.7\")']
-        ];
+        const devicePresetData = window.SCREEN_RULER_DEVICE_DATA || { presets: [], modelAliases: [] };
+        const PRESETS = devicePresetData.presets;
+        const MODEL_TO_PRESET = devicePresetData.modelAliases;
         let detectedDeviceModel = '';
         const onlineLookupConfig = window.SCREEN_RULER_CONFIG || {};
+        let onlineLookupInFlight = false;
 
         function getPhysicalScreenResolution() {
             const dpr = window.devicePixelRatio || 1;
@@ -557,6 +476,7 @@ Y +0°</span>
         }
 
         async function lookupDeviceOnline() {
+            if (onlineLookupInFlight) return;
             const endpoint = onlineLookupConfig.lookupEndpoint;
             const publicKey = onlineLookupConfig.supabaseAnonKey;
             if (!endpoint) {
@@ -572,6 +492,7 @@ Y +0°</span>
             }
 
             const button = document.getElementById('onlineLookupButton');
+            onlineLookupInFlight = true;
             button.disabled = true;
             button.classList.add('opacity-50', 'cursor-wait');
             setOnlineLookupStatus('Looking up this device…');
@@ -601,9 +522,9 @@ Y +0°</span>
                 customWidth = result.match.width;
                 customHeight = result.match.height;
                 activePresetName = `${result.match.brand} ${result.match.name} (${diagonal.toFixed(2)}")`;
-                const cssWidth = (window.screen.width || window.innerWidth);
-                const cssHeight = (window.screen.height || window.innerHeight);
-                ppi = Math.sqrt(cssWidth * cssWidth + cssHeight * cssHeight) / diagonal;
+                // The matching service returns physical display pixels. Browser layout
+                // pixels are intentionally scaled and would make the ruler too small.
+                ppi = Math.sqrt(result.match.width * result.match.width + result.match.height * result.match.height) / diagonal;
 
                 localStorage.setItem('calibrated_ruler_ppi', ppi);
                 localStorage.setItem('calibrated_ruler_diagonal', diagonal);
@@ -614,6 +535,7 @@ Y +0°</span>
             } catch (error) {
                 setOnlineLookupStatus(error.message || 'Online lookup is unavailable.', true);
             } finally {
+                onlineLookupInFlight = false;
                 button.disabled = false;
                 button.classList.remove('opacity-50', 'cursor-wait');
             }
@@ -727,6 +649,7 @@ Y +0°</span>
 
                 if (!areControlsHidden && 
                     settingsCard && !settingsCard.contains(e.target) && 
+                    !e.target.closest('#onboardingModal') &&
                     !listDevice.contains(e.target) &&
                     readoutPanel && !readoutPanel.contains(e.target) && 
                     toggleControlsBtn && !toggleControlsBtn.contains(e.target) &&
