@@ -765,11 +765,19 @@ Y +0°</span>
                 const exactPreset = PRESETS.find(p => p.name === modelMatch[1]);
                 if (exactPreset) return exactPreset;
             }
+
+            // iOS normally exposes only the generic "iPhone" model. In that case,
+            // use the physical resolution to distinguish iPhones, rather than letting
+            // a similarly sized Android handset win the general resolution match.
+            const isGenericIphoneHint = normalisedModel === 'IPHONE';
+            const resolutionCandidates = isGenericIphoneHint
+                ? PRESETS.filter(p => p.name.startsWith('iPhone'))
+                : PRESETS.filter(p => !p.name.startsWith('iPhone'));
             
-            let matched = PRESETS[0]; 
+            let matched = resolutionCandidates[0] || PRESETS[0];
             let minDiff = Infinity;
 
-            PRESETS.forEach(p => {
+            resolutionCandidates.forEach(p => {
                 const diff = Math.abs(p.wMatch - screenW) + Math.abs(p.hMatch - screenH);
                 const invertedDiff = Math.abs(p.hMatch - screenW) + Math.abs(p.wMatch - screenH); 
                 const actualSmallest = Math.min(diff, invertedDiff);

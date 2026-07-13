@@ -1,4 +1,409 @@
 // Offline-first reviewed device presets. Keep entries concise and versioned in Git.
+// Curated global phone coverage: 395 non-duplicate additions selected across the leading
+// manufacturers and recent widely used product lines. Source: Global Smartphone Database
+// 2025 (Apache-2.0; 4,144 devices, scraped 29 July 2025), with a basic PPI consistency
+// check. Existing 2025-26 models above remain the current-data layer.
+const CURATED_PHONE_PRESETS = `
+iPhone 8 Plus (5.5")|5.5|1080|1920
+Asus ROG Phone 8 Pro (6.78")|6.78|1080|2400
+Asus ROG Phone 9 (6.78")|6.78|1080|2400
+Asus ROG Phone 9 Pro (6.78")|6.78|1080|2400
+Asus Zenfone 10 (5.92")|5.92|1080|2400
+Google Pixel 4a 5G (6.2")|6.2|1080|2340
+Google Pixel 5 (6")|6|1080|2340
+Google Pixel 5a 5G (6.34")|6.34|1080|2400
+Google Pixel 6a (6.1")|6.1|1080|2400
+Google Pixel 9 Pro Fold (8")|8|2076|2152
+Google Pixel 9 Pro XL (6.8")|6.8|1344|2992
+Google Pixel Fold (7.6")|7.6|1840|2208
+Honor 200 (6.7")|6.7|1200|2664
+Honor 300 (6.7")|6.7|1200|2664
+Honor 300 Pro (6.78")|6.78|1224|2700
+Honor 300 Ultra (6.78")|6.78|1224|2700
+Honor 400 (6.55")|6.55|1200|2664
+Honor 400 Lite (6.7")|6.7|1080|2412
+Honor 400 Pro (6.7")|6.7|1280|2800
+Honor Magic V3 (7.92")|7.92|2156|2344
+Honor Magic7 (6.78")|6.78|1264|2800
+Honor Magic7 Pro (6.8")|6.8|1280|2800
+Honor Magic7 RSR Porsche Design (6.8")|6.8|1280|2800
+Honor X5b Plus (6.56")|6.56|720|1612
+Honor X60 (6.8")|6.8|1080|2412
+Honor X60 Pro (6.78")|6.78|1224|2700
+Honor X6b (6.56")|6.56|720|1612
+Honor X6c (6.61")|6.61|720|1604
+Honor X7c (6.77")|6.77|720|1612
+Honor X8c (6.7")|6.7|1080|2412
+Honor X9c (6.78")|6.78|1224|2700
+Honor X9c Smart (6.8")|6.8|1080|2412
+Huawei Mate 40 Pro (6.76")|6.76|1344|2772
+Huawei Mate 50 (6.7")|6.7|1224|2700
+Huawei Mate 50 Pro (6.74")|6.74|1212|2616
+Huawei Mate 60 (6.69")|6.69|1216|2688
+Huawei Mate 70 Pro (6.9")|6.9|1316|2832
+Huawei Mate X3 (7.85")|7.85|2224|2496
+Huawei Mate X5 (7.85")|7.85|2224|2496
+Huawei Mate Xs (8")|8|2200|2480
+Huawei Nova 11 Pro (6.78")|6.78|1200|2652
+Huawei P40 Pro Plus (6.58")|6.58|1200|2640
+Huawei P50 Pro (6.6")|6.6|1228|2700
+Huawei P60 Art (6.67")|6.67|1220|2700
+Huawei P60 Pro (6.67")|6.67|1220|2700
+Huawei Pura 70 (6.6")|6.6|1256|2760
+Huawei Pura 70 Pro Plus (6.8")|6.8|1260|2844
+Huawei Pura 70 Ultra (6.8")|6.8|1260|2844
+Huawei Pura 80 Pro (6.8")|6.8|1276|2848
+Huawei Pura 80 Ultra (6.8")|6.8|1276|2848
+Huawei Y5p (5.45")|5.45|720|1440
+Huawei Y6p (6.3")|6.3|720|1600
+Huawei Y7p (6.39")|6.39|720|1560
+Huawei Y8p (6.3")|6.3|1080|2400
+Infinix GT 20 Pro (6.78")|6.78|1080|2436
+Infinix GT 30 Pro (6.78")|6.78|1224|2720
+Infinix Hot 40i (6.56")|6.56|720|1612
+Infinix Hot 50 (6.78")|6.78|1080|2460
+Infinix Hot 50 Pro Plus (6.78")|6.78|1080|2436
+Infinix Hot 50i (6.7")|6.7|720|1600
+Infinix Hot 60 Pro (6.78")|6.78|1224|2720
+Infinix Hot 60i (6.7")|6.7|720|1600
+Infinix Note 40 (6.78")|6.78|1080|2436
+Infinix Note 40 Pro Plus (6.78")|6.78|1080|2436
+Infinix Note 40S (6.78")|6.78|1080|2436
+Infinix Note 50 (6.78")|6.78|1080|2436
+Infinix Note 50 Pro (6.78")|6.78|1080|2436
+Infinix Note 50x (6.67")|6.67|720|1600
+Infinix Smart 10 (6.67")|6.67|720|1600
+Infinix Smart 6 Plus (6.82")|6.82|720|1600
+Infinix Smart 9 (6.7")|6.7|720|1612
+Infinix Smart 9 HD (6.7")|6.7|720|1600
+iPhone 11 Pro (5.8")|5.8|1125|2436
+iPhone 12 Mini (5.4")|5.4|1080|2340
+iPhone SE 2020 (4.7")|4.7|750|1334
+iPhone XS (5.8")|5.8|1125|2436
+iPhone XS Max (6.5")|6.5|1242|2688
+iQOO Neo 10 (6.78")|6.78|1260|2800
+iQOO Neo10 Pro Plus (6.82")|6.82|1440|3168
+iQOO Z10 (6.77")|6.77|1080|2392
+iQOO Z10 Turbo (6.78")|6.78|1260|2800
+iQOO Z10 Turbo Pro (6.78")|6.78|1260|2800
+iQOO Z10x (6.72")|6.72|1080|2408
+Motorola Edge 50 Fusion (6.7")|6.7|1080|2400
+Motorola Edge 50 Ultra (6.7")|6.7|1220|2712
+Motorola Edge 60 (6.67")|6.67|1220|2712
+Motorola Edge 60 Fusion (6.67")|6.67|1220|2712
+Motorola Edge 60 Stylus (6.7")|6.7|1220|2712
+Motorola Moto G04 (6.56")|6.56|720|1612
+Motorola Moto G04s (6.56")|6.56|720|1612
+Motorola Moto G05 (6.67")|6.67|720|1604
+Motorola Moto G24 (6.56")|6.56|720|1612
+Motorola Moto G24 Power (6.56")|6.56|720|1612
+Motorola Moto G35 (6.72")|6.72|1080|2400
+Motorola Moto G45 (6.5")|6.5|1080|2400
+Motorola Moto G64 (6.5")|6.5|1080|2400
+Motorola Moto G75 (6.78")|6.78|1080|2388
+Motorola Moto G85 (6.67")|6.67|1080|2400
+Motorola Moto G96 (6.67")|6.67|1080|2400
+Motorola Moto X50 Ultra (6.7")|6.7|1220|2712
+Motorola Razr 60 Ultra (7")|7|1224|2912
+Nokia C110 (6.4")|6.4|720|1560
+Nokia C12 (6.3")|6.3|720|1600
+Nokia C12 Pro (6.3")|6.3|720|1600
+Nokia C22 (6.5")|6.5|720|1600
+Nokia C32 (6.5")|6.5|720|1600
+Nokia XR21 Limited Edition (6.49")|6.49|1080|2400
+Nothing CMF Phone 2 Pro (6.77")|6.77|1080|2392
+Nothing Phone 3 (6.67")|6.67|1260|2800
+OnePlus 13 (6.82")|6.82|1440|3168
+OnePlus 13R (6.78")|6.78|1264|2780
+OnePlus 13s (6.32")|6.32|1216|2640
+OnePlus 13T (6.32")|6.32|1216|2640
+OnePlus Ace 3V (6.74")|6.74|1240|2772
+OnePlus Ace 5 (6.78")|6.78|1264|2780
+OnePlus Ace 5 Pro (6.78")|6.78|1264|2780
+OnePlus Ace 5 Racing (6.77")|6.77|1080|2392
+OnePlus Ace 5 Ultra (6.83")|6.83|1272|2800
+OnePlus Nord 4 (6.74")|6.74|1240|2772
+OnePlus Nord 5 (6.83")|6.83|1272|2800
+OnePlus Nord CE4 (6.7")|6.7|1080|2412
+OnePlus Nord CE4 Lite (6.67")|6.67|1080|2400
+OnePlus Nord CE5 (6.77")|6.77|1080|2392
+Oppo A18 (6.56")|6.56|720|1612
+Oppo A3 (6.67")|6.67|720|1604
+Oppo A3 Pro (6.67")|6.67|720|1604
+Oppo A38 (6.56")|6.56|720|1612
+Oppo A3x (6.67")|6.67|720|1604
+Oppo A5 5G (6.67")|6.67|720|1604
+Oppo A5 Pro (6.67")|6.67|720|1604
+Oppo A5x (6.67")|6.67|720|1604
+Oppo A60 (6.67")|6.67|720|1604
+Oppo F25 Pro (6.7")|6.7|1080|2412
+Oppo F27 Pro Plus (6.7")|6.7|1080|2412
+Oppo Find N3 (7.82")|7.82|2268|2440
+Oppo Find N3 Flip (6.8")|6.8|1080|2520
+Oppo Find N5 (8.12")|8.12|2248|2480
+Oppo Find X7 (6.78")|6.78|1264|2780
+Oppo Find X7 Ultra (6.82")|6.82|1440|3168
+Oppo Find X8 (6.59")|6.59|1256|2760
+Oppo Find X8 Pro (6.78")|6.78|1264|2780
+Oppo Find X8 Ultra (6.82")|6.82|1440|3168
+Oppo Find X8s (6.32")|6.32|1216|2640
+Oppo K12 Plus (6.7")|6.7|1080|2412
+Oppo K13 (6.67")|6.67|1080|2400
+Oppo K13 Turbo (6.8")|6.8|1280|2800
+Oppo K13 Turbo Pro (6.8")|6.8|1280|2800
+Oppo Reno 11 Pro (6.7")|6.7|1080|2412
+Oppo Reno 12 (6.7")|6.7|1080|2412
+Oppo Reno12 F 4G (6.67")|6.67|1080|2400
+Oppo Reno12 Pro (6.7")|6.7|1080|2412
+Oppo Reno13 (6.59")|6.59|1256|2760
+Oppo Reno13 F (6.67")|6.67|1080|2400
+Oppo Reno13 Pro (6.83")|6.83|1272|2800
+Oppo Reno14 (6.59")|6.59|1256|2760
+Oppo Reno14 F (6.57")|6.57|1080|2372
+Oppo Reno14 Pro (6.83")|6.83|1272|2800
+Realme 12 (6.67")|6.67|1080|2400
+Realme 13 (6.72")|6.72|1080|2400
+Realme 13 Pro Plus (6.7")|6.7|1080|2412
+Realme 14 (6.67")|6.67|1080|2400
+Realme 14 Pro (6.77")|6.77|1080|2392
+Realme 14 Pro Lite (6.7")|6.7|1080|2412
+Realme 14T (6.67")|6.67|1080|2400
+Realme C61 (6.74")|6.74|720|1600
+Realme C63 (6.74")|6.74|720|1600
+Realme C65 5G (6.67")|6.67|720|1604
+Realme C75 (6.72")|6.72|1080|2400
+Realme C75x (6.67")|6.67|720|1604
+Realme GT 6 (6.78")|6.78|1264|2780
+Realme GT 6T (6.78")|6.78|1264|2780
+Realme GT 7 Pro (6.78")|6.78|1264|2780
+Realme GT 7T (6.8")|6.8|1280|2800
+Realme GT Neo 6 (6.78")|6.78|1264|2780
+Realme GT7 (6.8")|6.8|1280|2800
+Realme Narzo 70 (6.67")|6.67|1080|2400
+Realme Narzo 70x (6.72")|6.72|1080|2400
+Realme Narzo 80 Pro (6.72")|6.72|1080|2392
+Realme Narzo 80x (6.72")|6.72|1080|2400
+Realme Narzo N63 (6.74")|6.74|720|1600
+Realme Narzo N65 (6.67")|6.67|720|1604
+Realme Note 60 (6.74")|6.74|720|1600
+Realme Note 60x (6.74")|6.74|720|1600
+Realme P1 Speed (6.67")|6.67|1080|2400
+Realme P2 Pro (6.7")|6.7|1080|2412
+Realme P3 (6.67")|6.67|1080|2400
+Realme P3 Pro (6.83")|6.83|1272|2800
+Realme P3 Ultra (6.83")|6.83|1272|2800
+Realme P3x (6.72")|6.72|1080|2400
+Samsung Galaxy A02 (6.5")|6.5|720|1600
+Samsung Galaxy A03 (6.5")|6.5|720|1600
+Samsung Galaxy A03 Core (6.5")|6.5|720|1600
+Samsung Galaxy A04 (6.5")|6.5|720|1600
+Samsung Galaxy A04s (6.5")|6.5|720|1600
+Samsung Galaxy A05 (6.7")|6.7|720|1600
+Samsung Galaxy A05s (6.7")|6.7|1080|2400
+Samsung Galaxy A06 (6.7")|6.7|720|1600
+Samsung Galaxy A12 (6.5")|6.5|720|1600
+Samsung Galaxy A13 (6.6")|6.6|1080|2408
+Samsung Galaxy A14 4G (6.6")|6.6|1080|2408
+Samsung Galaxy A16 5G (6.7")|6.7|1080|2340
+Samsung Galaxy A22 (6.4")|6.4|720|1600
+Samsung Galaxy A23 (6.6")|6.6|1080|2408
+Samsung Galaxy A24 (6.5")|6.5|1080|2340
+Samsung Galaxy A25 (6.5")|6.5|1080|2340
+Samsung Galaxy A26 (6.7")|6.7|1080|2340
+Samsung Galaxy A32 (6.4")|6.4|1080|2400
+Samsung Galaxy A33 5G (6.4")|6.4|1080|2400
+Samsung Galaxy A34 5G (6.6")|6.6|1080|2340
+Samsung Galaxy A36 (6.7")|6.7|1080|2340
+Samsung Galaxy A52 (6.5")|6.5|1080|2400
+Samsung Galaxy A52s 5G (6.5")|6.5|1080|2400
+Samsung Galaxy A53 5G (6.5")|6.5|1080|2400
+Samsung Galaxy A55 (6.6")|6.6|1080|2340
+Samsung Galaxy A56 (6.7")|6.7|1080|2340
+Samsung Galaxy A73 5G (6.7")|6.7|1080|2400
+Samsung Galaxy F05 (6.7")|6.7|720|1600
+Samsung Galaxy F06 5G (6.7")|6.7|720|1600
+Samsung Galaxy F13 (6.6")|6.6|1080|2408
+Samsung Galaxy F14 4G (6.7")|6.7|1080|2400
+Samsung Galaxy F15 (6.6")|6.6|1080|2340
+Samsung Galaxy F16 (6.7")|6.7|1080|2340
+Samsung Galaxy F22 (6.4")|6.4|720|1600
+Samsung Galaxy F23 (6.6")|6.6|1080|2408
+Samsung Galaxy F34 (6.5")|6.5|1080|2340
+Samsung Galaxy F41 (6.4")|6.4|1080|2340
+Samsung Galaxy F55 5G (6.7")|6.7|1080|2400
+Samsung Galaxy F56 (6.74")|6.74|1080|2340
+Samsung Galaxy F62 (6.7")|6.7|1080|2400
+Samsung Galaxy M02 (6.5")|6.5|720|1600
+Samsung Galaxy M02s (6.5")|6.5|720|1600
+Samsung Galaxy M05 (6.7")|6.7|720|1600
+Samsung Galaxy M06 (6.74")|6.74|720|1600
+Samsung Galaxy M12 (6.5")|6.5|720|1600
+Samsung Galaxy M13 5G (6.5")|6.5|720|1600
+Samsung Galaxy M14 4G (6.7")|6.7|1080|2400
+Samsung Galaxy M15 (6.5")|6.5|1080|2340
+Samsung Galaxy M16 5G (6.7")|6.7|1080|2340
+Samsung Galaxy M32 (6.4")|6.4|1080|2400
+Samsung Galaxy M33 (6.6")|6.6|1080|2408
+Samsung Galaxy M34 5G (6.5")|6.5|1080|2340
+Samsung Galaxy M35 (6.6")|6.6|1080|2340
+Samsung Galaxy M36 (6.7")|6.7|1080|2340
+Samsung Galaxy M51 (6.7")|6.7|1080|2400
+Samsung Galaxy M53 5G (6.7")|6.7|1080|2400
+Samsung Galaxy M54 (6.7")|6.7|1080|2400
+Samsung Galaxy M55 (6.7")|6.7|1080|2400
+Samsung Galaxy M55s (6.7")|6.7|1080|2400
+Samsung Galaxy M56 (6.74")|6.74|1080|2340
+Samsung Galaxy Note20 (6.7")|6.7|1080|2400
+Samsung Galaxy S20 FE (6.5")|6.5|1080|2400
+Samsung Galaxy S21 FE 5G (6.4")|6.4|1080|2340
+Samsung Galaxy S23 FE (6.4")|6.4|1080|2340
+Samsung Galaxy S24 FE (6.7")|6.7|1080|2340
+Samsung Galaxy S25 Edge (6.7")|6.7|1440|3120
+Samsung Galaxy Z Flip3 5G (6.7")|6.7|1080|2640
+Samsung Galaxy Z Flip4 (6.7")|6.7|1080|2640
+Samsung Galaxy Z Fold2 5G (7.6")|7.6|1768|2208
+Samsung Galaxy Z Fold3 5G (7.6")|7.6|1768|2208
+Samsung Galaxy Z Fold4 (7.6")|7.6|1812|2176
+Sony Xperia 1 IV (6.5")|6.5|1644|3840
+Sony Xperia 1 VI (6.5")|6.5|1080|2340
+Sony Xperia 1 VII (6.5")|6.5|1080|2340
+Sony Xperia 5 III (6.1")|6.1|1080|2520
+Sony Xperia 5 IV (6.1")|6.1|1080|2520
+TCL 40 NxtPaper (6.78")|6.78|1080|2460
+TCL 40 SE (6.75")|6.75|720|1600
+TCL 408 (6.6")|6.6|720|1612
+Tecno Camon 30 Premier (6.77")|6.77|1264|2780
+Tecno Camon 30S (6.78")|6.78|1080|2436
+Tecno Camon 40 (6.78")|6.78|1080|2436
+Tecno Camon 40 Pro 5G (6.78")|6.78|1080|2436
+Tecno Phantom V Flip 5G (6.9")|6.9|1080|2640
+Tecno Phantom V Fold2 (7.85")|7.85|2000|2296
+Tecno Pova 5 Pro 5G (6.78")|6.78|1080|2460
+Tecno Spark 20 (6.6")|6.6|720|1612
+Tecno Spark 20 Pro (6.78")|6.78|1080|2460
+Tecno Spark 20C (6.6")|6.6|720|1612
+Tecno Spark 30 (6.78")|6.78|1080|2460
+Tecno Spark 30 Pro (6.78")|6.78|1080|2436
+Tecno Spark 30C (6.67")|6.67|720|1600
+Tecno Spark 40 (6.67")|6.67|720|1600
+Tecno Spark 40C (6.67")|6.67|720|1600
+Tecno Spark Go 1 (6.67")|6.67|720|1600
+Tecno Spark Go 2 (6.67")|6.67|720|1600
+Tecno Spark Go 2024 (6.6")|6.6|720|1612
+Vivo S19 (6.78")|6.78|1260|2800
+Vivo S19 Pro (6.78")|6.78|1260|2800
+Vivo S30 Pro Mini (6.31")|6.31|1216|2640
+Vivo T3 (6.67")|6.67|1080|2400
+Vivo T3 Lite (6.56")|6.56|720|1612
+Vivo T3 Pro (6.77")|6.77|1080|2392
+Vivo T3 Ultra (6.78")|6.78|1260|2800
+Vivo T3x (6.72")|6.72|1080|2408
+Vivo T4 (6.77")|6.77|1080|2392
+Vivo T4 Ultra (6.67")|6.67|1260|2800
+Vivo T4x (6.72")|6.72|1080|2408
+Vivo V30 (6.78")|6.78|1260|2800
+Vivo V30 Lite 4G (6.67")|6.67|1080|2400
+Vivo V30 Pro (6.78")|6.78|1260|2800
+Vivo V30e (6.78")|6.78|1080|2400
+Vivo V40 (6.78")|6.78|1260|2800
+Vivo V40 Lite (6.67")|6.67|1080|2400
+Vivo V40 Pro (6.78")|6.78|1260|2800
+Vivo V40e (6.77")|6.77|1080|2392
+Vivo V50 (6.77")|6.77|1080|2392
+Vivo V50 Lite 5G (6.77")|6.77|1080|2392
+Vivo V50e (6.77")|6.77|1080|2392
+Vivo X Fold3 Pro (8.03")|8.03|2200|2480
+Vivo X100 Ultra (6.78")|6.78|1440|3200
+Vivo X100s (6.78")|6.78|1260|2800
+Vivo X100s Pro (6.78")|6.78|1260|2800
+Vivo X200 (6.67")|6.67|1260|2800
+Vivo X200 FE (6.31")|6.31|1216|2640
+Vivo X200 Pro (6.78")|6.78|1260|2800
+Vivo X200 Pro Mini (6.31")|6.31|1216|2640
+Vivo X200 Ultra (6.82")|6.82|1440|3168
+Vivo X200s (6.67")|6.67|1260|2800
+Vivo Y03 (6.56")|6.56|720|1612
+Vivo Y03t (6.56")|6.56|720|1612
+Vivo Y04 (6.74")|6.74|720|1600
+Vivo Y18 (6.56")|6.56|720|1612
+Vivo Y19s (6.68")|6.68|720|1608
+Vivo Y19s Pro (6.68")|6.68|720|1608
+Vivo Y200 Pro (6.78")|6.78|1080|2400
+Vivo Y200e (6.67")|6.67|1080|2400
+Vivo Y29 (6.68")|6.68|720|1608
+Xiaomi Poco C51 (6.52")|6.52|720|1600
+Xiaomi Poco C55 (6.71")|6.71|720|1650
+Xiaomi Poco C61 (6.71")|6.71|720|1650
+Xiaomi Poco C65 (6.74")|6.74|720|1650
+Xiaomi Poco C71 (6.88")|6.88|720|1640
+Xiaomi Poco C75 5G (6.88")|6.88|720|1640
+Xiaomi Poco F4 (6.67")|6.67|1080|2400
+Xiaomi Poco F4 GT (6.67")|6.67|1080|2400
+Xiaomi Poco F5 (6.67")|6.67|1080|2400
+Xiaomi Poco F5 Pro (6.67")|6.67|1440|3200
+Xiaomi Poco F6 (6.67")|6.67|1220|2712
+Xiaomi Poco F6 Pro (6.67")|6.67|1440|3200
+Xiaomi Poco F7 (6.83")|6.83|1280|2772
+Xiaomi Poco F7 Pro (6.67")|6.67|1440|3200
+Xiaomi Poco F7 Ultra (6.67")|6.67|1440|3200
+Xiaomi Poco M5 (6.58")|6.58|1080|2408
+Xiaomi Poco M6 Plus (6.79")|6.79|1080|2460
+Xiaomi Poco M6 Pro (6.67")|6.67|1080|2400
+Xiaomi Poco M7 (6.88")|6.88|720|1640
+Xiaomi Poco M7 Pro 5G (6.67")|6.67|1080|2400
+Xiaomi Poco X4 GT (6.6")|6.6|1080|2460
+Xiaomi Poco X5 5G (6.67")|6.67|1080|2400
+Xiaomi Poco X5 Pro 5G (6.67")|6.67|1080|2400
+Xiaomi Poco X6 (6.67")|6.67|1220|2712
+Xiaomi Poco X6 Neo (6.67")|6.67|1080|2400
+Xiaomi Poco X6 Pro (6.67")|6.67|1220|2712
+Xiaomi Poco X7 (6.67")|6.67|1220|2712
+Xiaomi Poco X7 Pro (6.67")|6.67|1220|2712
+Xiaomi Redmi 10 2022 (6.5")|6.5|1080|2400
+Xiaomi Redmi 10A (6.53")|6.53|720|1600
+Xiaomi Redmi 11 Prime (6.58")|6.58|1080|2408
+Xiaomi Redmi 12 5G (6.79")|6.79|1080|2460
+Xiaomi Redmi 12C (6.71")|6.71|720|1650
+Xiaomi Redmi 12R (6.79")|6.79|1080|2460
+Xiaomi Redmi 13 (6.79")|6.79|1080|2400
+Xiaomi Redmi 13C 5G (6.74")|6.74|720|1600
+Xiaomi Redmi 14C (6.88")|6.88|720|1640
+Xiaomi Redmi A1 Plus (6.52")|6.52|720|1600
+Xiaomi Redmi A2 Plus (6.52")|6.52|720|1600
+Xiaomi Redmi A3 (6.71")|6.71|720|1650
+Xiaomi Redmi A5 4G (6.88")|6.88|720|1640
+Xiaomi Redmi K50i (6.6")|6.6|1080|2460
+Xiaomi Redmi K60 (6.67")|6.67|1440|3200
+Xiaomi Redmi K60 Pro (6.67")|6.67|1440|3200
+Xiaomi Redmi K60 Ultra (6.67")|6.67|1220|2712
+Xiaomi Redmi K60E (6.67")|6.67|1440|3200
+Xiaomi Redmi K70 (6.67")|6.67|1440|3200
+Xiaomi Redmi K70 Pro (6.67")|6.67|1440|3200
+Xiaomi Redmi K70 Ultra (6.67")|6.67|1220|2712
+Xiaomi Redmi K70E (6.67")|6.67|1220|2712
+Xiaomi Redmi K80 (6.67")|6.67|1440|3200
+Xiaomi Redmi K80 Pro (6.67")|6.67|1440|3200
+Xiaomi Redmi Note 11 SE (6.5")|6.5|1080|2400
+Xiaomi Redmi Note 12 (6.67")|6.67|1080|2400
+Xiaomi Redmi Note 12 Pro 4G (6.67")|6.67|1080|2400
+Xiaomi Redmi Note 12 Turbo (6.67")|6.67|1080|2400
+Xiaomi Redmi Note 12S (6.43")|6.43|1080|2400
+Xiaomi Redmi Note 13 4G (6.67")|6.67|1080|2400
+Xiaomi Redmi Note 13 Pro 4G (6.67")|6.67|1080|2400
+Xiaomi Redmi Note 14 5G (Global) (6.67")|6.67|1080|2400
+Xiaomi Redmi Note 14 Pro (6.67")|6.67|1080|2400
+Xiaomi Redmi Turbo 3 (6.67")|6.67|1220|2712
+Xiaomi Redmi Turbo 4 (6.67")|6.67|1220|2712
+Xiaomi Redmi Turbo 4 Pro (6.83")|6.83|1280|2772
+ZTE Blade A35e (6.52")|6.52|576|1280
+ZTE Blade V70 Design (6.7")|6.7|720|1612
+ZTE nubia Red Magic 10S Pro Plus (6.85")|6.85|1216|2688
+ZTE nubia Z70S Ultra (6.85")|6.85|1216|2688
+`.trim().split('\n').map((line) => {
+    const [name, diagonal, wMatch, hMatch] = line.split('|');
+    return [name, Number(diagonal), Number(wMatch), Number(hMatch)];
+});
+
 window.SCREEN_RULER_DEVICE_DATA = {
     presets: [
         ['Motorola Edge 40 (6.55")', 6.55, 1080, 2400], ['Motorola Edge 50 Pro (6.7")', 6.7, 1220, 2712], ['Motorola Edge (2023) (6.6")', 6.6, 1080, 2400], ['Motorola Moto G Power 5G (2024) (6.7")', 6.7, 1080, 2400], ['Motorola Moto G Stylus 5G (2024) (6.7")', 6.7, 1080, 2400], ['Motorola Moto G Play (2024) (6.5")', 6.5, 720, 1600], ['Motorola Razr Foldable (6.9")', 6.9, 1080, 2640],
@@ -14,10 +419,11 @@ window.SCREEN_RULER_DEVICE_DATA = {
         ['Sony Xperia 5 V (6.1")', 6.1, 1080, 2520], ['Asus Zenfone 11 Ultra (6.78")', 6.78, 1080, 2400], ['Realme GT 5 (6.74")', 6.74, 1240, 2772], ['Asus ROG Phone 8 (6.78")', 6.78, 1080, 2448], ['Honor Magic6 Pro (6.8")', 6.8, 1280, 2800], ['Oppo Find X6 Pro (6.82")', 6.82, 1440, 3168],
         ['Nothing Phone (2) (6.7")', 6.7, 1080, 2412], ['Vivo X100 Pro (6.78")', 6.78, 1260, 2800], ['Realme 12 Pro (6.7")', 6.7, 1080, 2412], ['Oppo Reno10 Pro (6.7")', 6.7, 1080, 2412], ['Vivo V29 Pro (6.78")', 6.78, 1260, 2800],
         ['iPad Pro 12.9" Tablet (12.9")', 12.9, 2048, 2732], ['iPad Pro 11" Tablet (11.0")', 11, 1668, 2420], ['iPad Air 10.9" Tablet (10.9")', 10.9, 1640, 2360],
-        ['Standard Full HD Monitor (24")', 24, 1920, 1080], ['Standard QHD Monitor (27")', 27, 2560, 1440], ['Standard 4K Monitor (27")', 27, 3840, 2160]
+        ['Standard Full HD Monitor (24")', 24, 1920, 1080], ['Standard QHD Monitor (27")', 27, 2560, 1440], ['Standard 4K Monitor (27")', 27, 3840, 2160],
+        ...CURATED_PHONE_PRESETS
     ].map(([name, diagonal, wMatch, hMatch]) => ({ name, diagonal, wMatch, hMatch })),
     modelAliases: [
-        ['SM-S928', 'Samsung Galaxy S24 Ultra (6.8")'], ['SM-S926', 'Samsung Galaxy S24+ (6.7")'], ['SM-S921', 'Samsung Galaxy S24 (6.2")'], ['SM-S918', 'Samsung Galaxy S23 Ultra (6.8")'], ['SM-S916', 'Samsung Galaxy S23+ (6.6")'], ['SM-S911', 'Samsung Galaxy S23 (6.1")'], ['SM-S908', 'Samsung Galaxy S22 Ultra (6.8")'], ['SM-S901', 'Samsung Galaxy S22 (6.1")'], ['SM-G998', 'Samsung Galaxy S21 Ultra (6.8")'], ['SM-G991', 'Samsung Galaxy S21 (6.2")'], ['SM-A546', 'Samsung Galaxy A54 5G (6.4")'], ['SM-A356', 'Samsung Galaxy A35 5G (6.6")'], ['SM-A156', 'Samsung Galaxy A15 5G (6.5")'],
+        ['SM-S928', 'Samsung Galaxy S24 Ultra (6.8")'], ['SM-S926', 'Samsung Galaxy S24+ (6.7")'], ['SM-S921', 'Samsung Galaxy S24 (6.2")'], ['SM-S918', 'Samsung Galaxy S23 Ultra (6.8")'], ['SM-S916', 'Samsung Galaxy S23+ (6.6")'], ['SM-S911', 'Samsung Galaxy S23 (6.1")'], ['SM-S908', 'Samsung Galaxy S22 Ultra (6.8")'], ['SM-S901', 'Samsung Galaxy S22 (6.1")'], ['SM-G998', 'Samsung Galaxy S21 Ultra (6.8")'], ['SM-G991', 'Samsung Galaxy S21 (6.2")'], ['SM-A736', 'Samsung Galaxy A73 5G (6.7")'], ['SM-A556', 'Samsung Galaxy A55 (6.6")'], ['SM-A546', 'Samsung Galaxy A54 5G (6.4")'], ['SM-A536', 'Samsung Galaxy A53 5G (6.5")'], ['SM-A528', 'Samsung Galaxy A52s 5G (6.5")'], ['SM-A526', 'Samsung Galaxy A52 (6.5")'], ['SM-A356', 'Samsung Galaxy A35 5G (6.6")'], ['SM-A346', 'Samsung Galaxy A34 5G (6.6")'], ['SM-A336', 'Samsung Galaxy A33 5G (6.4")'], ['SM-A256', 'Samsung Galaxy A25 (6.5")'], ['SM-A245', 'Samsung Galaxy A24 (6.5")'], ['SM-A236', 'Samsung Galaxy A23 (6.6")'], ['SM-A226', 'Samsung Galaxy A22 (6.4")'], ['SM-A166', 'Samsung Galaxy A16 5G (6.7")'], ['SM-A156', 'Samsung Galaxy A15 5G (6.5")'], ['SM-A146', 'Samsung Galaxy A14 4G (6.6")'], ['SM-A135', 'Samsung Galaxy A13 (6.6")'], ['SM-A057', 'Samsung Galaxy A05s (6.7")'], ['SM-A055', 'Samsung Galaxy A05 (6.7")'], ['SM-A047', 'Samsung Galaxy A04s (6.5")'], ['SM-A035', 'Samsung Galaxy A03s (6.5")'], ['SM-M556', 'Samsung Galaxy M55 (6.7")'], ['SM-M356', 'Samsung Galaxy M35 (6.6")'], ['SM-M346', 'Samsung Galaxy M34 5G (6.5")'], ['SM-M336', 'Samsung Galaxy M33 (6.6")'], ['SM-M156', 'Samsung Galaxy M15 (6.5")'], ['SM-M146', 'Samsung Galaxy M14 4G (6.7")'],
         ['PIXEL 8 PRO', 'Google Pixel 8 Pro (6.7")'], ['PIXEL 8A', 'Google Pixel 8a (6.1")'], ['PIXEL 8', 'Google Pixel 8 (6.2")'], ['PIXEL 7 PRO', 'Google Pixel 7 Pro (6.7")'], ['PIXEL 7A', 'Google Pixel 7a (6.1")'], ['PIXEL 7', 'Google Pixel 7 (6.3")'], ['PIXEL 6 PRO', 'Google Pixel 6 Pro (6.7")'], ['PIXEL 6', 'Google Pixel 6 (6.4")'],
         ['SM-S938', 'Samsung Galaxy S25 Ultra (6.9")'], ['SM-S936', 'Samsung Galaxy S25+ (6.7")'], ['SM-S931', 'Samsung Galaxy S25 (6.2")'], ['SM-F966', 'Samsung Galaxy Z Fold 7 (8.0")'], ['SM-F766', 'Samsung Galaxy Z Flip 7 (6.9")'], ['SM-F761', 'Samsung Galaxy Z Flip 7 FE (6.7")'], ['SM-F956', 'Samsung Galaxy Z Fold 6 (7.6")'], ['SM-F741', 'Samsung Galaxy Z Flip 6 (6.7")'],
         ['GALAXY S26 ULTRA', 'Samsung Galaxy S26 Ultra (6.9")'], ['GALAXY S26+', 'Samsung Galaxy S26+ (6.7")'], ['GALAXY S26', 'Samsung Galaxy S26 (6.3")'],

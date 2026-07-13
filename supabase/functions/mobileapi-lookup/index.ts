@@ -47,6 +47,18 @@ function resolutionMatches(candidate: { width: number; height: number }, width: 
     return Math.min(direct, swapped) <= tolerance;
 }
 
+function matchCertainty(candidate: Record<string, unknown>) {
+    return Number.parseFloat(String(candidate.match_certainty || 0)) || 0;
+}
+
+function isStrongProviderMatch(candidate: Record<string, unknown>) {
+    // MobileAPI's exact name/model-number search is more reliable than a browser's
+    // display signature: browsers may provide CSS pixels, viewport pixels, or native
+    // pixels depending on the platform and privacy settings.
+    const type = String(candidate.match_type || '').toLowerCase();
+    return matchCertainty(candidate) >= 95 && (type === 'name' || type === 'model_number');
+}
+
 function looksLikeModelNumber(value: string) {
     // Browser hints such as "motorola edge 40" are marketing names, whereas
     // identifiers such as "SM-S928B" and "A3520" are model numbers.
@@ -133,14 +145,24 @@ serve(async (request) => {
 
         const payload = await apiResponse.json();
         const candidates = Array.isArray(payload.devices) ? payload.devices : [];
-        const compatibleCandidates = candidates.map((candidate: Record<string, unknown>) => {
+        const eligibleCandidates = candidates.map((candidate: Record<string, unknown>) => {
             const screen = typeof candidate.screen_resolution === 'string'
                 ? parseScreenResolution(candidate.screen_resolution)
                 : null;
-            return { candidate, screen };
-        }).filter(({ screen }) => screen && resolutionMatches(screen, width, height));
-        const device = compatibleCandidates
-            .sort((a, b) => Number.parseFloat(String(b.candidate.match_certainty || 0)) - Number.parseFloat(String(a.candidate.match_certainty || 0)))[0]?.candidate;
+            const screenMatches = Boolean(screen && resolutionMatches(screen, width, height));
+            return { candidate, screen, screenMatches };
+        }).filter(({ candidate, screen, screenMatches }) =>
+            Boolean(screen) && (screenMatches || isStrongProviderMatch(candidate))
+        );
+        const selected = eligibleCandidates
+            .sort((a, b) => {
+                // A matching display is useful when candidates are otherwise tied,
+                // but never hide a high-confidence exact provider match.
+                const aScore = matchCertainty(a.candidate) + (a.screenMatches ? 1 : 0);
+                const bScore = matchCertainty(b.candidate) + (b.screenMatches ? 1 : 0);
+                return bScore - aScore;
+            })[0];
+        const device = selected?.candidate;
 
         if (!device) {
             await writeAuditEntry({
@@ -157,7 +179,7 @@ serve(async (request) => {
             });
             return json({ match: null }, 200, origin);
         }
-        const screen = parseScreenResolution(device.screen_resolution);
+        const screen = selected?.screen;
         if (!screen) {
             await writeAuditEntry({
                 requested_model: model.trim(),
