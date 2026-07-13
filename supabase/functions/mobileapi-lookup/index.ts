@@ -7,7 +7,6 @@ const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const adminClient = supabaseUrl && serviceRoleKey
     ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
     : null;
-const lookupsPerIpPerHour = 2;
 const maxLookupsPerMonth = 25;
 const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '')
     .split(',')
@@ -48,9 +47,17 @@ function resolutionMatches(candidate: { width: number; height: number }, width: 
     return Math.min(direct, swapped) <= tolerance;
 }
 
-function callerIp(request: Request) {
-    const forwarded = request.headers.get('x-forwarded-for');
-    return request.headers.get('cf-connecting-ip') || forwarded?.split(',')[0].trim() || 'unknown';
+function looksLikeModelNumber(value: string) {
+    // Browser hints such as "motorola edge 40" are marketing names, whereas
+    // identifiers such as "SM-S928B" and "A3520" are model numbers.
+    return /^(?=.*\d)[a-z0-9_-]+$/i.test(value);
+}
+
+function auditCandidate(candidate: Record<string, unknown>) {
+    // Device search responses may include large image payloads. They do not help
+    // diagnose a screen match, so exclude them from the audit trail.
+    const { image_b64, main_image_b64, ...details } = candidate;
+    return details;
 }
 
 async function consumeQuota(bucketKey: string, limit: number, windowSeconds: number) {
@@ -77,6 +84,7 @@ serve(async (request) => {
     const origin = request.headers.get('Origin');
     let auditRequest: { model: string; width: number; height: number } | null = null;
     let providerCallStarted = false;
+    let searchParameter: 'model_number' | 'name' = 'model_number';
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders(origin) });
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, origin);
     if (allowedOrigins.length && origin && !allowedOrigins.includes(origin)) {
@@ -94,10 +102,6 @@ serve(async (request) => {
         }
         auditRequest = { model: model.trim(), width, height };
 
-        const ipQuotaAvailable = await consumeQuota(`mobileapi:ip:${callerIp(request)}`, lookupsPerIpPerHour, 3600);
-        if (ipQuotaAvailable === null) return json({ error: 'Lookup protection is temporarily unavailable' }, 503, origin);
-        if (!ipQuotaAvailable) return json({ error: 'Too many device lookups. Please try again later.' }, 429, origin);
-
         // A calendar-month key creates a firm shared ceiling, independent of the
         // number of visitors or IP addresses using the public lookup endpoint.
         const monthKey = new Date().toISOString().slice(0, 7);
@@ -108,7 +112,8 @@ serve(async (request) => {
         }
 
         const url = new URL('https://api.mobileapi.dev/devices/search/');
-        url.searchParams.set('model_number', model.trim());
+        searchParameter = looksLikeModelNumber(model.trim()) ? 'model_number' : 'name';
+        url.searchParams.set(searchParameter, model.trim());
         url.searchParams.set('exact', 'true');
 
         providerCallStarted = true;
@@ -128,13 +133,14 @@ serve(async (request) => {
 
         const payload = await apiResponse.json();
         const candidates = Array.isArray(payload.devices) ? payload.devices : [];
-        const device = candidates.find((candidate: Record<string, unknown>) => {
-            if (candidate.match_type !== 'exact_model') return false;
+        const compatibleCandidates = candidates.map((candidate: Record<string, unknown>) => {
             const screen = typeof candidate.screen_resolution === 'string'
                 ? parseScreenResolution(candidate.screen_resolution)
                 : null;
-            return screen && resolutionMatches(screen, width, height);
-        });
+            return { candidate, screen };
+        }).filter(({ screen }) => screen && resolutionMatches(screen, width, height));
+        const device = compatibleCandidates
+            .sort((a, b) => Number.parseFloat(String(b.candidate.match_certainty || 0)) - Number.parseFloat(String(a.candidate.match_certainty || 0)))[0]?.candidate;
 
         if (!device) {
             await writeAuditEntry({
@@ -142,7 +148,12 @@ serve(async (request) => {
                 requested_screen_width: width,
                 requested_screen_height: height,
                 provider_status: apiResponse.status,
-                match_found: false
+                match_found: false,
+                provider_response: payload,
+                mobileapi_match: {
+                    search_parameter: searchParameter,
+                    candidates: candidates.map(auditCandidate)
+                }
             });
             return json({ match: null }, 200, origin);
         }
@@ -168,7 +179,11 @@ serve(async (request) => {
             matched_diagonal: screen.diagonal,
             matched_screen_width: screen.width,
             matched_screen_height: screen.height,
-            mobileapi_match: device
+            provider_response: payload,
+            mobileapi_match: {
+                search_parameter: searchParameter,
+                candidate: auditCandidate(device)
+            }
         });
         return json({
             match: {

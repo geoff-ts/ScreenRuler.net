@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Screen Ruler</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="ruler-config.js"></script>
     <script src="device-presets.js"></script>
@@ -88,6 +89,8 @@
             background: transparent;
             cursor: pointer;
         }
+        .scale-position-labels > :nth-child(2) { text-align: center; }
+        .scale-position-labels > :nth-child(3) { text-align: right; }
         input[type="range"]::-webkit-slider-runnable-track {
             background: rgba(255, 255, 255, 0.1);
             height: 6px;
@@ -233,7 +236,7 @@ Y +0°</span>
                             <div class="flex items-center justify-between gap-3">
                                 <div>
                                     <div class="text-xs font-bold uppercase text-neutral-400">Online Device Match</div>
-                                    <div id="onlineLookupStatus" class="text-[10px] text-neutral-500">Uses a one-off secure lookup when configured.</div>
+                                    <div id="onlineLookupStatus" class="text-[10px] text-neutral-500">Compares your device’s model name with a secure third-party database.</div>
                                 </div>
                                 <button type="button" onclick="lookupDeviceOnline()" id="onlineLookupButton" class="shrink-0 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20">Look Up</button>
                             </div>
@@ -313,7 +316,7 @@ Y +0°</span>
                                 </div>
                             </div>
                             <input type="range" id="microSlider" min="0.01" max="13.10" step="0.01" value="6.55" oninput="updateDiagonalFromSlider(this.value)" class="w-full py-2">
-                            <div class="flex justify-between text-[9px] font-mono text-neutral-500 px-0.5">
+                            <div class="scale-position-labels grid grid-cols-3 text-[9px] font-mono text-neutral-500 px-0.5">
                                 <span>0&quot;</span><span>Device</span><span>2× device</span>
                             </div>
                         </div>
@@ -410,6 +413,16 @@ Y +0°</span>
                     </div>
                 </div>
 
+                <div class="border-t border-neutral-800/50 pt-3 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="text-xs font-bold uppercase text-neutral-400">Online Device Match</div>
+                            <div id="onboardOnlineLookupStatus" class="text-[10px] text-neutral-500">Compares your device’s model name with a secure third-party database.</div>
+                        </div>
+                        <button type="button" onclick="lookupDeviceOnline('onboarding')" id="onboardOnlineLookupButton" class="shrink-0 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20">Look Up</button>
+                    </div>
+                </div>
+
                 <div id="customOnboardBlock" class="hidden bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
                     <label class="block text-xs font-bold uppercase text-neutral-400">Enter Screen Diagonal Size</label>
                     <div class="flex items-center gap-2">
@@ -443,6 +456,7 @@ Y +0°</span>
         let detectedDeviceModel = '';
         const onlineLookupConfig = window.SCREEN_RULER_CONFIG || {};
         let onlineLookupInFlight = false;
+        let onboardingOnlineMatchApplied = false;
 
         function getPhysicalScreenResolution() {
             const dpr = window.devicePixelRatio || 1;
@@ -469,33 +483,35 @@ Y +0°</span>
             }
         }
 
-        function setOnlineLookupStatus(message, isError = false) {
-            const status = document.getElementById('onlineLookupStatus');
+        function setOnlineLookupStatus(message, isError = false, context = 'settings') {
+            const status = document.getElementById(context === 'onboarding' ? 'onboardOnlineLookupStatus' : 'onlineLookupStatus');
+            if (!status) return;
             status.textContent = message;
             status.className = `text-[10px] ${isError ? 'text-rose-400' : 'text-neutral-500'}`;
         }
 
-        async function lookupDeviceOnline() {
+        async function lookupDeviceOnline(context = 'settings') {
             if (onlineLookupInFlight) return;
             const endpoint = onlineLookupConfig.lookupEndpoint;
             const publicKey = onlineLookupConfig.supabaseAnonKey;
             if (!endpoint) {
-                setOnlineLookupStatus('Online lookup is not configured for this site yet.', true);
+                setOnlineLookupStatus('Online lookup is not configured for this site yet.', true, context);
                 return;
             }
 
             await detectDeviceProfile();
             const model = detectedDeviceModel.trim();
             if (!model || model.length < 2 || model.toUpperCase() === 'K') {
-                setOnlineLookupStatus('This browser did not provide a usable device model. Choose a device manually.', true);
+                setOnlineLookupStatus('This browser did not provide a usable device model. Choose a device manually.', true, context);
                 return;
             }
 
-            const button = document.getElementById('onlineLookupButton');
+            const button = document.getElementById(context === 'onboarding' ? 'onboardOnlineLookupButton' : 'onlineLookupButton');
+            if (!button) return;
             onlineLookupInFlight = true;
             button.disabled = true;
             button.classList.add('opacity-50', 'cursor-wait');
-            setOnlineLookupStatus('Looking up this device…');
+            setOnlineLookupStatus('Looking up this device…', false, context);
 
             try {
                 const signature = getPhysicalScreenResolution();
@@ -512,7 +528,7 @@ Y +0°</span>
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Lookup failed');
                 if (!result.match) {
-                    setOnlineLookupStatus('No confident online match found. Choose a device manually.', true);
+                    setOnlineLookupStatus('No confident online match found. Choose a device manually.', true, context);
                     return;
                 }
 
@@ -522,18 +538,24 @@ Y +0°</span>
                 customWidth = result.match.width;
                 customHeight = result.match.height;
                 activePresetName = `${result.match.brand} ${result.match.name} (${diagonal.toFixed(2)}")`;
-                // The matching service returns physical display pixels. Browser layout
-                // pixels are intentionally scaled and would make the ruler too small.
-                ppi = Math.sqrt(result.match.width * result.match.width + result.match.height * result.match.height) / diagonal;
+                // The provider gives physical display pixels, while the canvas uses
+                // CSS pixels. Convert the physical PPI through DPR before drawing.
+                const physicalPpi = Math.hypot(result.match.width, result.match.height) / diagonal;
+                ppi = physicalPpi / Math.max(1, signature.dpr || 1);
 
                 localStorage.setItem('calibrated_ruler_ppi', ppi);
                 localStorage.setItem('calibrated_ruler_diagonal', diagonal);
                 localStorage.setItem('calibrated_ruler_presetName', activePresetName);
                 applySavedMetrics();
-                setOnlineLookupStatus(`Matched ${result.match.brand} ${result.match.name}.`);
+                if (context === 'onboarding') {
+                    onboardingOnlineMatchApplied = true;
+                    document.getElementById('onboardSearchInput').value = activePresetName;
+                }
+                const scaleMessage = `Matched ${result.match.brand} ${result.match.name}. Scale set to ${Math.round(ppi)} PPI.`;
+                setOnlineLookupStatus(context === 'onboarding' ? `${scaleMessage} Press Done to continue.` : scaleMessage, false, context);
                 showToast('Online device match applied.');
             } catch (error) {
-                setOnlineLookupStatus(error.message || 'Online lookup is unavailable.', true);
+                setOnlineLookupStatus(error.message || 'Online lookup is unavailable.', true, context);
             } finally {
                 onlineLookupInFlight = false;
                 button.disabled = false;
@@ -595,10 +617,15 @@ Y +0°</span>
         };
         const settingsCard = document.getElementById('settingsCard');
         const rulerToggleIcon = document.getElementById('rulerToggleIcon');
-        const canUseBubbleLevel = 'DeviceOrientationEvent' in window;
+        const canUseBubbleLevel = 'DeviceOrientationEvent' in window || 'DeviceMotionEvent' in window;
         let bubbleLevelListening = false;
         let smoothedLevelTilt = null;
         let lastLevelSampleAt = 0;
+        let lastGravitySampleAt = 0;
+        let bubbleVisualPosition = null;
+        let bubbleVisualTarget = null;
+        let bubbleVisualFrame = null;
+        let lastBubbleVisualFrameAt = 0;
 
         if (screen.orientation?.addEventListener) screen.orientation.addEventListener('change', resetBubbleLevelSmoothing);
         window.addEventListener('orientationchange', resetBubbleLevelSmoothing);
@@ -773,6 +800,7 @@ Y +0°</span>
             const deviceControls = document.getElementById('deviceControlsToMerge');
             const calibrationTab = document.getElementById('tabContent-calibrate');
             const profileSelector = deviceControls.firstElementChild;
+            const onlineLookup = document.getElementById('onlineLookupButton')?.closest('.border-t');
             const customDimensions = document.getElementById('customInputsBlock-device');
             const diagonalControl = document.getElementById('diagonalControl');
             const ppiControl = document.getElementById('ppiControl');
@@ -787,8 +815,13 @@ Y +0°</span>
             ppiControl.classList.remove('border-t', 'pt-3');
             scaleControls.append(diagonalControl, ppiControl);
 
-            // The profile and the two editable scale readouts replace custom dimensions.
-            calibrationTab.prepend(profileSelector, scaleControls);
+            // The profile, optional online match, and editable scale readouts replace
+            // the retired Device tab controls.
+            if (onlineLookup) {
+                calibrationTab.prepend(profileSelector, onlineLookup, scaleControls);
+            } else {
+                calibrationTab.prepend(profileSelector, scaleControls);
+            }
             deviceControls.remove();
         }
 
@@ -821,11 +854,26 @@ Y +0°</span>
             else setTimeout(() => list.classList.add('hidden'), 200);
         }
 
+        function matchesDeviceSearch(name, query) {
+            const queryTerms = query.toLowerCase().match(/[a-z0-9]+/g) || [];
+            if (!queryTerms.length) return true;
+            const nameTerms = name.toLowerCase().match(/[a-z0-9]+/g) || [];
+            let searchStart = 0;
+            return queryTerms.every(term => {
+                const foundAt = nameTerms.findIndex((nameTerm, index) =>
+                    index >= searchStart && nameTerm.startsWith(term)
+                );
+                if (foundAt < 0) return false;
+                searchStart = foundAt + 1;
+                return true;
+            });
+        }
+
         function filterDevicePresets(query) {
             const list = document.getElementById('deviceDropdownList');
             list.innerHTML = '';
             
-            const filtered = PRESETS.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            const filtered = PRESETS.filter(p => matchesDeviceSearch(p.name, query));
             
             filtered.forEach(p => {
                 const div = document.createElement('div');
@@ -868,7 +916,7 @@ Y +0°</span>
             const list = document.getElementById('onboardDropdownList');
             list.innerHTML = '';
             
-            const filtered = PRESETS.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+            const filtered = PRESETS.filter(p => matchesDeviceSearch(p.name, query));
             
             filtered.forEach(p => {
                 const div = document.createElement('div');
@@ -894,6 +942,7 @@ Y +0°</span>
         }
 
         function handleOnboardSelect(val) {
+            onboardingOnlineMatchApplied = false;
             const block = document.getElementById('customOnboardBlock');
             if (val === "CUSTOM_DEVICE" || val === "Custom Override Selection") {
                 block.classList.remove('hidden');
@@ -968,34 +1017,40 @@ Y +0°</span>
 
         function confirmOnboarding(openCalibrateTab = false) {
             const choice = document.getElementById('onboardSearchInput').value;
-            if (choice === "CUSTOM_DEVICE" || choice === "Custom Override Selection") {
-                const customVal = parseFloat(document.getElementById('customOnboardInput').value);
-                if (!isNaN(customVal) && customVal > 2 && customVal < 40) {
-                    diagonal = customVal;
-                    customDiagonal = customVal;
-                    activePresetName = "Custom User Device";
-                }
-            } else {
-                const found = PRESETS.find(p => p.name === choice);
-                if (found) {
-                    diagonal = found.diagonal;
-                    customDiagonal = found.diagonal;
-                    customWidth = found.wMatch;
-                    customHeight = found.hMatch;
-                    activePresetName = found.name;
-                    scaleReferenceDiagonal = found.diagonal;
-                } else {
+            const preserveOnlineMatch = onboardingOnlineMatchApplied;
+            if (!preserveOnlineMatch) {
+                if (choice === "CUSTOM_DEVICE" || choice === "Custom Override Selection") {
                     const customVal = parseFloat(document.getElementById('customOnboardInput').value);
-                    diagonal = (!isNaN(customVal)) ? customVal : 6.55;
-                    customDiagonal = diagonal;
-                    activePresetName = "Custom Device";
+                    if (!isNaN(customVal) && customVal > 2 && customVal < 40) {
+                        diagonal = customVal;
+                        customDiagonal = customVal;
+                        activePresetName = "Custom User Device";
+                    }
+                } else {
+                    const found = PRESETS.find(p => p.name === choice);
+                    if (found) {
+                        diagonal = found.diagonal;
+                        customDiagonal = found.diagonal;
+                        customWidth = found.wMatch;
+                        customHeight = found.hMatch;
+                        activePresetName = found.name;
+                        scaleReferenceDiagonal = found.diagonal;
+                    } else {
+                        const customVal = parseFloat(document.getElementById('customOnboardInput').value);
+                        diagonal = (!isNaN(customVal)) ? customVal : 6.55;
+                        customDiagonal = diagonal;
+                        activePresetName = "Custom Device";
+                    }
                 }
             }
 
-            const sw = window.screen.width || window.innerWidth;
-            const sh = window.screen.height || window.innerHeight;
-            const cssDiag = Math.sqrt(sw*sw + sh*sh);
-            ppi = cssDiag / diagonal;
+            if (!preserveOnlineMatch) {
+                const sw = window.screen.width || window.innerWidth;
+                const sh = window.screen.height || window.innerHeight;
+                const cssDiag = Math.sqrt(sw*sw + sh*sh);
+                ppi = cssDiag / diagonal;
+            }
+            onboardingOnlineMatchApplied = false;
 
             localStorage.setItem('calibrated_ruler_ppi', ppi);
             localStorage.setItem('calibrated_ruler_diagonal', diagonal);
@@ -1151,20 +1206,33 @@ Y +0°</span>
             // browsers) enable the level as soon as a real sensor sample arrives.
             // iPhone browsers that require a tap simply remain off until tapped.
             window.addEventListener('deviceorientation', autoEnableBubbleLevel, true);
-            window.setTimeout(() => window.removeEventListener('deviceorientation', autoEnableBubbleLevel, true), 2000);
+            window.addEventListener('devicemotion', autoEnableBubbleLevel, true);
+            window.setTimeout(() => {
+                window.removeEventListener('deviceorientation', autoEnableBubbleLevel, true);
+                window.removeEventListener('devicemotion', autoEnableBubbleLevel, true);
+            }, 2000);
         }
 
         function autoEnableBubbleLevel(event) {
-            if (event.beta === null || event.gamma === null) return;
+            const gravity = event.accelerationIncludingGravity;
+            const hasGravity = gravity && [gravity.x, gravity.y, gravity.z].every(Number.isFinite);
+            const hasOrientation = Number.isFinite(event.beta) && Number.isFinite(event.gamma);
+            if (!hasGravity && !hasOrientation) return;
             window.removeEventListener('deviceorientation', autoEnableBubbleLevel, true);
+            window.removeEventListener('devicemotion', autoEnableBubbleLevel, true);
             const toggle = document.getElementById('toggleBubbleLevel');
             toggle.checked = true;
-            if (!bubbleLevelListening) {
-                window.addEventListener('deviceorientation', updateBubbleLevel, true);
-                bubbleLevelListening = true;
-            }
+            startBubbleLevelListeners();
             bubbleLevelPanel.classList.remove('hidden');
-            updateBubbleLevel(event);
+            if (hasGravity) updateBubbleLevelFromMotion(event);
+            else updateBubbleLevel(event);
+        }
+
+        function startBubbleLevelListeners() {
+            if (bubbleLevelListening) return;
+            window.addEventListener('devicemotion', updateBubbleLevelFromMotion, true);
+            window.addEventListener('deviceorientation', updateBubbleLevel, true);
+            bubbleLevelListening = true;
         }
 
         async function toggleBubbleLevel(enabled) {
@@ -1182,15 +1250,18 @@ Y +0°</span>
 
             try {
                 // iOS requires this permission request to be initiated by the toggle tap.
-                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    if (permission !== 'granted') throw new Error('permission denied');
+                const requests = [];
+                if (typeof window.DeviceOrientationEvent?.requestPermission === 'function') {
+                    requests.push(window.DeviceOrientationEvent.requestPermission());
+                }
+                if (typeof window.DeviceMotionEvent?.requestPermission === 'function') {
+                    requests.push(window.DeviceMotionEvent.requestPermission());
+                }
+                if ((await Promise.all(requests)).some(permission => permission !== 'granted')) {
+                    throw new Error('permission denied');
                 }
 
-                if (!bubbleLevelListening) {
-                    window.addEventListener('deviceorientation', updateBubbleLevel, true);
-                    bubbleLevelListening = true;
-                }
+                startBubbleLevelListeners();
                 bubbleLevelPanel.classList.remove('hidden');
             } catch (_) {
                 toggle.checked = false;
@@ -1202,6 +1273,51 @@ Y +0°</span>
         function resetBubbleLevelSmoothing() {
             smoothedLevelTilt = null;
             lastLevelSampleAt = 0;
+            lastGravitySampleAt = 0;
+            bubbleVisualPosition = null;
+            bubbleVisualTarget = null;
+            if (bubbleVisualFrame) cancelAnimationFrame(bubbleVisualFrame);
+            bubbleVisualFrame = null;
+        }
+
+        function applyBubbleVisualPosition(position) {
+            levelDrift.style.left = position.x + 'px';
+            levelDrift.style.top = position.y + 'px';
+            levelDrift.style.transform = 'translate(-50%, -50%)';
+        }
+
+        function animateBubbleInertia(now) {
+            const elapsed = Math.min(50, Math.max(1, now - lastBubbleVisualFrameAt));
+            lastBubbleVisualFrameAt = now;
+            const blend = 1 - Math.exp(-elapsed / 60);
+            bubbleVisualPosition.x += (bubbleVisualTarget.x - bubbleVisualPosition.x) * blend;
+            bubbleVisualPosition.y += (bubbleVisualTarget.y - bubbleVisualPosition.y) * blend;
+            applyBubbleVisualPosition(bubbleVisualPosition);
+
+            const remaining = Math.hypot(
+                bubbleVisualTarget.x - bubbleVisualPosition.x,
+                bubbleVisualTarget.y - bubbleVisualPosition.y
+            );
+            if (remaining > 0.25) {
+                bubbleVisualFrame = requestAnimationFrame(animateBubbleInertia);
+            } else {
+                bubbleVisualPosition = { ...bubbleVisualTarget };
+                applyBubbleVisualPosition(bubbleVisualPosition);
+                bubbleVisualFrame = null;
+            }
+        }
+
+        function setBubbleVisualTarget(x, y) {
+            bubbleVisualTarget = { x, y };
+            if (!bubbleVisualPosition) {
+                bubbleVisualPosition = { ...bubbleVisualTarget };
+                applyBubbleVisualPosition(bubbleVisualPosition);
+                return;
+            }
+            if (!bubbleVisualFrame) {
+                lastBubbleVisualFrameAt = performance.now();
+                bubbleVisualFrame = requestAnimationFrame(animateBubbleInertia);
+            }
         }
 
         function getScreenOrientationAngle() {
@@ -1209,59 +1325,135 @@ Y +0°</span>
             return ((Number(angle) % 360) + 360) % 360;
         }
 
+        function withEdgeTubeAngles(tilt) {
+            const toDegrees = radians => radians * 180 / Math.PI;
+            return {
+                ...tilt,
+                // Each edge tube has 0 at its midpoint and reaches +/-45 at
+                // the corners, where the next edge becomes the active tube.
+                edgeForX: toDegrees(Math.atan2(tilt.y, Math.abs(tilt.x))),
+                edgeForY: toDegrees(Math.atan2(tilt.x, Math.abs(tilt.y)))
+            };
+        }
+
         function getScreenRelativeTilt(beta, gamma) {
+            // Convert the browser's Euler angles to gravity on the screen plane.
+            // `alpha` (the device's yaw / Z-axis rotation) is intentionally not
+            // used. Taking the normal component's magnitude means face-up and
+            // face-down are both level rather than reporting a 180° pitch.
+            const betaRadians = beta * Math.PI / 180;
+            const gammaRadians = gamma * Math.PI / 180;
+            const gravityX = Math.sin(gammaRadians);
+            const gravityY = -Math.sin(betaRadians) * Math.cos(gammaRadians);
+            const normalMagnitude = Math.abs(Math.cos(betaRadians) * Math.cos(gammaRadians));
+            const toDegrees = radians => radians * 180 / Math.PI;
+            const portraitTilt = {
+                x: -toDegrees(Math.atan2(gravityX, normalMagnitude)),
+                y: toDegrees(Math.atan2(gravityY, normalMagnitude))
+            };
+
             // DeviceOrientation is measured in the device's portrait axes. Rotate
-            // it into the axes of the screen the person is actually looking at.
+            // the screen-plane tilt into the axes the person is actually viewing.
+            let screenTilt;
             switch (getScreenOrientationAngle()) {
-                case 90: return { x: -beta, y: gamma };
-                case 180: return { x: gamma, y: beta };
-                case 270: return { x: beta, y: -gamma };
-                default: return { x: -gamma, y: -beta };
+                case 90: screenTilt = { x: portraitTilt.y, y: -portraitTilt.x }; break;
+                case 180: screenTilt = { x: -portraitTilt.x, y: -portraitTilt.y }; break;
+                case 270: screenTilt = { x: -portraitTilt.y, y: portraitTilt.x }; break;
+                default: screenTilt = portraitTilt;
             }
+            return withEdgeTubeAngles(screenTilt);
+        }
+
+        function getScreenRelativeGravityTilt(x, y, z) {
+            // Unlike beta/gamma, the accelerometer gives the gravity vector in
+            // the device's fixed X/Y/Z frame. That remains well-behaved when the
+            // screen is vertical, where Euler angles become ambiguous.
+            const toDegrees = radians => radians * 180 / Math.PI;
+            // CSS Y grows down the screen, so invert the device's upward-positive
+            // Y axis before mapping it to the visual level.
+            const portraitGravity = { x, y: -y, z };
+            let screenGravity;
+
+            switch (getScreenOrientationAngle()) {
+                case 90: screenGravity = { x: portraitGravity.y, y: -portraitGravity.x, z: portraitGravity.z }; break;
+                case 180: screenGravity = { x: -portraitGravity.x, y: -portraitGravity.y, z: portraitGravity.z }; break;
+                case 270: screenGravity = { x: -portraitGravity.y, y: portraitGravity.x, z: portraitGravity.z }; break;
+                default: screenGravity = portraitGravity;
+            }
+
+            const normalMagnitude = Math.abs(screenGravity.z);
+            return {
+                x: toDegrees(Math.atan2(screenGravity.x, normalMagnitude)),
+                y: toDegrees(Math.atan2(screenGravity.y, normalMagnitude)),
+                // The gravity direction within the screen plane determines the
+                // active edge and the signed travel along that edge.
+                edgeForX: toDegrees(Math.atan2(screenGravity.y, Math.abs(screenGravity.x))),
+                edgeForY: toDegrees(Math.atan2(screenGravity.x, Math.abs(screenGravity.y)))
+            };
         }
 
         function updateBubbleLevel(event) {
             if (event.beta === null || event.gamma === null) return;
-            const rawTilt = getScreenRelativeTilt(event.beta, event.gamma);
+            // Prefer the direct gravity vector whenever the browser supplies it.
+            // DeviceOrientation is retained only as a compatibility fallback.
+            if (performance.now() - lastGravitySampleAt < 350) return;
+            updateBubbleLevelFromTilt(getScreenRelativeTilt(event.beta, event.gamma));
+        }
+
+        function updateBubbleLevelFromMotion(event) {
+            const gravity = event.accelerationIncludingGravity;
+            if (!gravity || ![gravity.x, gravity.y, gravity.z].every(Number.isFinite)) return;
+            lastGravitySampleAt = performance.now();
+            updateBubbleLevelFromTilt(getScreenRelativeGravityTilt(gravity.x, gravity.y, gravity.z));
+        }
+
+        function updateBubbleLevelFromTilt(rawTilt) {
             const now = performance.now();
+            const tiltKeys = ['x', 'y', 'edgeForX', 'edgeForY'].filter(key => Number.isFinite(rawTilt[key]));
             if (!smoothedLevelTilt || now - lastLevelSampleAt > 1000) {
-                smoothedLevelTilt = rawTilt;
+                smoothedLevelTilt = { ...rawTilt };
             } else {
-                // Ignore the tiny sensor flutter around the current position, then
-                // respond quickly as soon as the device makes a deliberate move.
-                const deltaX = rawTilt.x - smoothedLevelTilt.x;
-                const deltaY = rawTilt.y - smoothedLevelTilt.y;
-                const targetX = Math.abs(deltaX) < 0.45 ? smoothedLevelTilt.x : rawTilt.x;
-                const targetY = Math.abs(deltaY) < 0.45 ? smoothedLevelTilt.y : rawTilt.y;
-                const largestDelta = Math.max(Math.abs(deltaX), Math.abs(deltaY));
-                const smoothingWindow = largestDelta > 4 ? 30 : 75;
+                // Orientation events can arrive before the first accelerometer
+                // event. Seed any newly available edge values before smoothing.
+                tiltKeys.forEach(key => {
+                    if (!Number.isFinite(smoothedLevelTilt[key])) smoothedLevelTilt[key] = rawTilt[key];
+                });
+                // A small deadband removes accelerometer chatter without adding
+                // the noticeable delay of heavy low-pass filtering.
+                const deltas = tiltKeys.map(key => rawTilt[key] - smoothedLevelTilt[key]);
+                const largestDelta = Math.max(...deltas.map(Math.abs));
+                const smoothingWindow = largestDelta > 4 ? 50 : 95;
                 const blend = 1 - Math.exp(-(now - lastLevelSampleAt) / smoothingWindow);
-                smoothedLevelTilt.x += (targetX - smoothedLevelTilt.x) * blend;
-                smoothedLevelTilt.y += (targetY - smoothedLevelTilt.y) * blend;
+                tiltKeys.forEach((key, index) => {
+                    const target = Math.abs(deltas[index]) < 0.75 ? smoothedLevelTilt[key] : rawTilt[key];
+                    smoothedLevelTilt[key] += (target - smoothedLevelTilt[key]) * blend;
+                });
             }
             lastLevelSampleAt = now;
             const tiltX = smoothedLevelTilt.x;
             const tiltY = smoothedLevelTilt.y;
             const xDominant = Math.abs(tiltX) >= Math.abs(tiltY);
             const axisTilt = xDominant ? tiltX : tiltY;
-            const degrees = Math.round(axisTilt);
+            const edgeTilt = xDominant
+                ? (smoothedLevelTilt.edgeForX ?? tiltY)
+                : (smoothedLevelTilt.edgeForY ?? tiltX);
             Object.values(levelArcs).forEach(arc => arc.classList.add('hidden'));
             let x;
             let y;
 
             if (Math.abs(axisTilt) > 45) {
                 // Past 45° the screen edge becomes the tube: the bubble's centre
-                // is exactly on that edge, while the other axis rolls along it.
+                // is exactly on that edge, while the edge angle rolls along it.
                 const direction = xDominant
                     ? (axisTilt > 0 ? 'right' : 'left')
                     : (axisTilt > 0 ? 'bottom' : 'top');
                 if (xDominant) {
                     x = direction === 'right' ? window.innerWidth : 0;
-                    y = Math.max(0, Math.min(window.innerHeight, window.innerHeight / 2 + tiltY / 45 * window.innerHeight / 2));
+                    y = Math.max(0, Math.min(window.innerHeight, window.innerHeight / 2 + edgeTilt / 45 * window.innerHeight / 2));
                     levelArcs[direction].style.left = x + 'px';
                     levelArcs[direction].style.top = (window.innerHeight / 2) + 'px';
                 } else {
-                    x = Math.max(0, Math.min(window.innerWidth, window.innerWidth / 2 + tiltX / 45 * window.innerWidth / 2));
+                    x = Math.max(0, Math.min(window.innerWidth, window.innerWidth / 2 + edgeTilt / 45 * window.innerWidth / 2));
                     y = direction === 'bottom' ? window.innerHeight : 0;
                     levelArcs[direction].style.left = (window.innerWidth / 2) + 'px';
                     levelArcs[direction].style.top = y + 'px';
@@ -1269,7 +1461,7 @@ Y +0°</span>
                 levelArcs[direction].classList.remove('hidden');
                 // Once the bubble is in an edge tube, its offset along that edge
                 // is the only meaningful level reading. The edge target is 0°.
-                const edgeDegrees = Math.round(xDominant ? tiltY : tiltX);
+                const edgeDegrees = Math.round(edgeTilt);
                 levelReadout.textContent = `${edgeDegrees >= 0 ? '+' : ''}${edgeDegrees}°`;
             } else {
                 // Within 45° both axes are meaningful and the bubble rolls toward
@@ -1281,9 +1473,10 @@ Y +0°</span>
                 levelReadout.textContent = `X ${xDegrees >= 0 ? '+' : ''}${xDegrees}°\nY ${yDegrees >= 0 ? '+' : ''}${yDegrees}°`;
             }
 
-            levelDrift.style.left = Math.max(0, Math.min(window.innerWidth, x)) + 'px';
-            levelDrift.style.top = Math.max(0, Math.min(window.innerHeight, y)) + 'px';
-            levelDrift.style.transform = 'translate(-50%, -50%)';
+            setBubbleVisualTarget(
+                Math.max(0, Math.min(window.innerWidth, x)),
+                Math.max(0, Math.min(window.innerHeight, y))
+            );
 
             const vectorX = x - window.innerWidth / 2;
             const vectorY = y - window.innerHeight / 2;
