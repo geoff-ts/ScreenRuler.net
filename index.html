@@ -414,6 +414,16 @@ Y +0°</span>
                                     <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                                 </label>
                             </div>
+                            <div id="adPreferenceRow" class="hidden items-center justify-between border-t border-neutral-800/50 pt-3">
+                                <div>
+                                    <div class="text-xs font-bold uppercase text-neutral-400">Disable Ads</div>
+                                    <div class="text-[10px] text-neutral-500">Stop banners on this device.</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="disableAdsToggle" onchange="setAdsDisabled(this.checked)" class="sr-only peer">
+                                    <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
                             <div class="border-t border-neutral-800/50 pt-3">
                                 <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Background Grid Style</label>
                                 <select id="gridSelect" onchange="setGridType(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
@@ -460,7 +470,7 @@ Y +0°</span>
                 </div>
             </div>
 
-            <button id="toggleControlsBtn" type="button" class="pointer-events-auto w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-850 active:scale-95 transition-all opacity-95" aria-label="Show or hide settings. Hold for five seconds to hide the ad for this visit." title="Show or hide settings. Hold for five seconds to hide the ad for this visit.">
+            <button id="toggleControlsBtn" type="button" class="pointer-events-auto w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-850 active:scale-95 transition-all opacity-95" aria-label="Show or hide settings. Hold for five seconds to hide the ad for this visit, or ten seconds to unlock the ads control." title="Show or hide settings. Hold for five seconds to hide the ad for this visit, or ten seconds to unlock the ads control.">
                 <svg id="rulerToggleIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-6 h-6 text-emerald-400 transition-transform" aria-hidden="true">
                     <circle cx="12" cy="12" r="3.25"></circle>
                     <path stroke-linecap="round" d="M12 2.75v2.5M12 18.75v2.5M21.25 12h-2.5M5.25 12h-2.5M18.54 5.46l-1.77 1.77M7.23 16.77l-1.77 1.77M18.54 18.54l-1.77-1.77M7.23 7.23 5.46 5.46"></path>
@@ -690,8 +700,12 @@ Y +0°</span>
         let ignoreNextClick = false;
         let areControlsHidden = false;
         const AD_DISMISSED_SESSION_KEY = 'screen_ruler_bottom_ad_dismissed';
-        const SETTINGS_HOLD_MS = 5000;
-        let settingsHoldTimer = null;
+        const AD_SETTINGS_UNLOCKED_KEY = 'screen_ruler_ads_control_unlocked';
+        const ADS_DISABLED_KEY = 'screen_ruler_ads_disabled';
+        const SETTINGS_HIDE_HOLD_MS = 5000;
+        const SETTINGS_UNLOCK_HOLD_MS = 10000;
+        let settingsHideTimer = null;
+        let settingsUnlockTimer = null;
         let settingsHoldHandled = false;
 
         const canvas = document.getElementById('rulerCanvas');
@@ -731,10 +745,12 @@ Y +0°</span>
         window.addEventListener('orientationchange', updateBottomAdAnchor);
         window.addEventListener('resize', updateBottomAdAnchor);
         window.addEventListener('resize', initializeBottomAd);
+        window.addEventListener('online', initializeBottomAd);
 
         mergeDeviceControlsIntoCalibrate();
 
         window.addEventListener('load', () => {
+            syncAdPreferenceUI();
             initializeBottomAd();
             initSearchDropdowns();
             initBubbleLevel();
@@ -1874,16 +1890,59 @@ Y +0°</span>
 
         function startSettingsHold() {
             settingsHoldHandled = false;
-            window.clearTimeout(settingsHoldTimer);
-            settingsHoldTimer = window.setTimeout(() => {
+            window.clearTimeout(settingsHideTimer);
+            window.clearTimeout(settingsUnlockTimer);
+            settingsHideTimer = window.setTimeout(() => {
                 settingsHoldHandled = true;
                 hideBottomAdForVisit();
-            }, SETTINGS_HOLD_MS);
+            }, SETTINGS_HIDE_HOLD_MS);
+            settingsUnlockTimer = window.setTimeout(() => {
+                settingsHoldHandled = true;
+                unlockAdPreference();
+            }, SETTINGS_UNLOCK_HOLD_MS);
         }
 
         function stopSettingsHold() {
-            window.clearTimeout(settingsHoldTimer);
-            settingsHoldTimer = null;
+            window.clearTimeout(settingsHideTimer);
+            window.clearTimeout(settingsUnlockTimer);
+            settingsHideTimer = null;
+            settingsUnlockTimer = null;
+        }
+
+        function isAdsDisabled() {
+            return localStorage.getItem(ADS_DISABLED_KEY) === 'true';
+        }
+
+        function syncAdPreferenceUI() {
+            const isUnlocked = localStorage.getItem(AD_SETTINGS_UNLOCKED_KEY) === 'true';
+            const preferenceRow = document.getElementById('adPreferenceRow');
+            const disableToggle = document.getElementById('disableAdsToggle');
+            preferenceRow.classList.toggle('hidden', !isUnlocked);
+            preferenceRow.classList.toggle('flex', isUnlocked);
+            disableToggle.checked = isAdsDisabled();
+        }
+
+        function unlockAdPreference() {
+            localStorage.setItem(AD_SETTINGS_UNLOCKED_KEY, 'true');
+            syncAdPreferenceUI();
+            if (areControlsHidden) toggleControls();
+            setTab('guides');
+            showToast('Ads control unlocked in Tools.');
+        }
+
+        function setAdsDisabled(disabled) {
+            localStorage.setItem(ADS_DISABLED_KEY, String(disabled));
+            if (disabled) {
+                const adContainer = document.getElementById('bottomAdContainer');
+                adContainer.classList.add('hidden');
+                document.body.classList.remove('ad-visible');
+                syncRulerAdSpace();
+                showToast('Ads disabled on this device.');
+            } else {
+                sessionStorage.removeItem(AD_DISMISSED_SESSION_KEY);
+                initializeBottomAd();
+                showToast('Ads enabled on this device.');
+            }
         }
 
         function initializeBottomAd() {
@@ -1896,6 +1955,17 @@ Y +0°</span>
 
             const adContainer = document.getElementById('bottomAdContainer');
             const adSlot = document.getElementById('bottomAdSlot');
+            if (isAdsDisabled()) {
+                adContainer.classList.add('hidden');
+                document.body.classList.remove('ad-visible');
+                syncRulerAdSpace();
+                return;
+            }
+            if (!navigator.onLine) {
+                hideBottomBannerForOffline(adContainer);
+                return;
+            }
+
             if (adContainer.dataset.initialized === 'true') {
                 adContainer.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
                 document.body.classList.add('ad-visible');
@@ -1918,6 +1988,12 @@ Y +0°</span>
             } catch (error) {
                 console.warn('Unable to initialize the bottom ad.', error);
             }
+        }
+
+        function hideBottomBannerForOffline(adContainer) {
+            adContainer.classList.add('hidden');
+            document.body.classList.remove('ad-visible');
+            syncRulerAdSpace();
         }
 
         function updateBottomAdAnchor() {
