@@ -115,6 +115,44 @@
         .blueprint input[type="range"]::-webkit-slider-thumb {
             background-color: #06b6d4;
         }
+        #bottomAdContainer {
+            bottom: max(0.5rem, env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(calc(100% - 2rem), 728px);
+            z-index: 30;
+        }
+        /* Keep the settings control clear of the ad to prevent accidental taps. */
+        .ad-visible.ad-anchor-bottom #appControlsOverlay {
+            padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+        }
+        @media (min-width: 1024px) {
+            .ad-visible.ad-anchor-bottom #appControlsOverlay {
+                padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+            }
+        }
+        /* Keep the banner beside the device navigation edge as the device turns. */
+        .ad-anchor-right #bottomAdContainer {
+            top: 50%;
+            right: max(0.5rem, env(safe-area-inset-right));
+            bottom: auto;
+            left: auto;
+            transform: translateY(-50%);
+        }
+        .ad-anchor-left #bottomAdContainer {
+            top: 50%;
+            right: auto;
+            bottom: auto;
+            left: max(0.5rem, env(safe-area-inset-left));
+            transform: translateY(-50%);
+        }
+        .ad-anchor-top #bottomAdContainer {
+            top: max(0.5rem, env(safe-area-inset-top));
+            right: auto;
+            bottom: auto;
+            left: 50%;
+            transform: translateX(-50%);
+        }
     </style>
 </head>
 <body class="h-full overflow-hidden bg-neutral-950 text-neutral-100 font-sans transition-colors duration-300">
@@ -150,7 +188,7 @@ Y +0°</span>
         <div id="levelDrift" class="absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"></div>
     </div>
 
-    <div class="absolute inset-0 flex flex-col justify-between pointer-events-none p-4 pb-safe z-10">
+    <div id="appControlsOverlay" class="absolute inset-0 flex flex-col justify-between pointer-events-none p-4 pb-safe z-10">
         
         <!-- Top Status Bar & Measurement Readouts -->
         <div class="w-full flex justify-between items-start gap-4">
@@ -381,7 +419,7 @@ Y +0°</span>
                 </div>
             </div>
 
-            <button id="toggleControlsBtn" onclick="toggleControls()" class="pointer-events-auto w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-850 active:scale-95 transition-all opacity-95">
+            <button id="toggleControlsBtn" type="button" class="pointer-events-auto w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-850 active:scale-95 transition-all opacity-95" aria-label="Show or hide settings. Hold for five seconds to hide the ad for this visit." title="Show or hide settings. Hold for five seconds to hide the ad for this visit.">
                 <svg id="rulerToggleIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-6 h-6 text-emerald-400 transition-transform" aria-hidden="true">
                     <circle cx="12" cy="12" r="3.25"></circle>
                     <path stroke-linecap="round" d="M12 2.75v2.5M12 18.75v2.5M21.25 12h-2.5M5.25 12h-2.5M18.54 5.46l-1.77 1.77M7.23 16.77l-1.77 1.77M18.54 18.54l-1.77-1.77M7.23 7.23 5.46 5.46"></path>
@@ -389,6 +427,17 @@ Y +0°</span>
             </button>
         </div>
     </div>
+
+    <!-- The ad is only created when both AdSense IDs are set in ruler-config.js. -->
+    <aside id="bottomAdContainer" class="fixed hidden pointer-events-auto" aria-label="Advertisement">
+        <div class="rounded-lg border border-neutral-700/70 bg-neutral-900/95 px-1 py-0.5 text-center shadow-xl">
+            <div class="pointer-events-none mb-0.5 text-[9px] font-medium uppercase tracking-widest text-neutral-500">Advertisement</div>
+            <ins id="bottomAdSlot" class="adsbygoogle block"
+                 style="display:block"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+        </div>
+    </aside>
 
     <!-- FIRST TIME USER ONBOARDING MODAL -->
     <div id="onboardingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
@@ -601,6 +650,10 @@ Y +0°</span>
         let caliperDraggedThisInteraction = false;
         let ignoreNextClick = false;
         let areControlsHidden = false;
+        const AD_DISMISSED_SESSION_KEY = 'screen_ruler_bottom_ad_dismissed';
+        const SETTINGS_HOLD_MS = 5000;
+        let settingsHoldTimer = null;
+        let settingsHoldHandled = false;
 
         const canvas = document.getElementById('rulerCanvas');
         const ctx = canvas.getContext('2d');
@@ -616,6 +669,7 @@ Y +0°</span>
         const levelDrift = document.getElementById('levelDrift');
         const levelReadout = document.getElementById('levelReadout');
         const levelNeedle = document.getElementById('levelNeedle');
+        const toggleControlsBtn = document.getElementById('toggleControlsBtn');
         const levelArcs = {
             left: document.getElementById('levelArcLeft'), right: document.getElementById('levelArcRight'),
             top: document.getElementById('levelArcTop'), bottom: document.getElementById('levelArcBottom')
@@ -634,10 +688,13 @@ Y +0°</span>
 
         if (screen.orientation?.addEventListener) screen.orientation.addEventListener('change', resetBubbleLevelSmoothing);
         window.addEventListener('orientationchange', resetBubbleLevelSmoothing);
+        if (screen.orientation?.addEventListener) screen.orientation.addEventListener('change', updateBottomAdAnchor);
+        window.addEventListener('orientationchange', updateBottomAdAnchor);
 
         mergeDeviceControlsIntoCalibrate();
 
         window.addEventListener('load', () => {
+            initializeBottomAd();
             initSearchDropdowns();
             initBubbleLevel();
             document.getElementById('inchFormatSelect').value = inchFormat;
@@ -1733,6 +1790,12 @@ Y +0°</span>
                 }
             });
 
+            const adContainer = document.getElementById('bottomAdContainer');
+            if (adContainer && !adContainer.classList.contains('hidden')) {
+                document.body.classList.add('ad-visible');
+                updateBottomAdAnchor();
+            }
+
             drawAll();
         }
 
@@ -1756,6 +1819,118 @@ Y +0°</span>
                 greeting.classList.remove('opacity-0', 'pointer-events-none');
             }
         }
+
+        function hideBottomAdForVisit() {
+            const adContainer = document.getElementById('bottomAdContainer');
+            if (!adContainer || adContainer.classList.contains('hidden')) return;
+            sessionStorage.setItem(AD_DISMISSED_SESSION_KEY, 'true');
+            adContainer.classList.add('hidden');
+            document.body.classList.remove('ad-visible');
+            showToast('Ad hidden for this visit.');
+        }
+
+        function startSettingsHold() {
+            settingsHoldHandled = false;
+            window.clearTimeout(settingsHoldTimer);
+            settingsHoldTimer = window.setTimeout(() => {
+                settingsHoldHandled = true;
+                hideBottomAdForVisit();
+            }, SETTINGS_HOLD_MS);
+        }
+
+        function stopSettingsHold() {
+            window.clearTimeout(settingsHoldTimer);
+            settingsHoldTimer = null;
+        }
+
+        function initializeBottomAd() {
+            const config = window.SCREEN_RULER_CONFIG || {};
+            const client = config.adsenseClient;
+            const slot = config.bottomAdSlot;
+            const hasAdSenseIds = /^ca-pub-\d+$/.test(client || '') && /^\d+$/.test(slot || '');
+
+            if (!hasAdSenseIds || !navigator.onLine || sessionStorage.getItem(AD_DISMISSED_SESSION_KEY) === 'true') return;
+
+            const adContainer = document.getElementById('bottomAdContainer');
+            const adSlot = document.getElementById('bottomAdSlot');
+            adSlot.dataset.adClient = client;
+            adSlot.dataset.adSlot = slot;
+            adContainer.classList.remove('hidden');
+            adContainer.classList.add('opacity-0', 'pointer-events-none');
+
+            const adScript = document.createElement('script');
+            adScript.async = true;
+            adScript.crossOrigin = 'anonymous';
+            adScript.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`;
+            adScript.onload = () => {
+                try {
+                    (window.adsbygoogle = window.adsbygoogle || []).push({});
+                    waitForBottomAdFill(adContainer, adSlot);
+                } catch (error) {
+                    console.warn('Unable to load the bottom ad.', error);
+                    hideUnfilledBottomAd(adContainer);
+                }
+            };
+            adScript.onerror = () => hideUnfilledBottomAd(adContainer);
+            document.head.appendChild(adScript);
+        }
+
+        function hideUnfilledBottomAd(adContainer) {
+            adContainer.classList.add('hidden');
+            adContainer.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.classList.remove('ad-visible');
+        }
+
+        function waitForBottomAdFill(adContainer, adSlot) {
+            let timeout;
+            const finish = filled => {
+                window.clearTimeout(timeout);
+                observer.disconnect();
+                if (!filled) {
+                    hideUnfilledBottomAd(adContainer);
+                    return;
+                }
+                adContainer.classList.remove('opacity-0', 'pointer-events-none');
+                document.body.classList.add('ad-visible');
+                updateBottomAdAnchor();
+            };
+            const checkStatus = () => {
+                const status = adSlot.dataset.adStatus;
+                if (status === 'filled' || adSlot.querySelector('iframe')) finish(true);
+                else if (status === 'unfilled') finish(false);
+            };
+            const observer = new MutationObserver(checkStatus);
+            observer.observe(adSlot, { attributes: true, attributeFilter: ['data-ad-status'], childList: true, subtree: true });
+            timeout = window.setTimeout(() => finish(false), 8000);
+            checkStatus();
+        }
+
+        function updateBottomAdAnchor() {
+            const angle = Number(screen.orientation?.angle ?? window.orientation ?? 0);
+            const normalizedAngle = ((angle % 360) + 360) % 360;
+            const anchorClass = {
+                0: 'ad-anchor-bottom',
+                90: 'ad-anchor-left',
+                180: 'ad-anchor-top',
+                270: 'ad-anchor-right'
+            }[normalizedAngle] || 'ad-anchor-bottom';
+
+            document.body.classList.remove('ad-anchor-bottom', 'ad-anchor-left', 'ad-anchor-top', 'ad-anchor-right');
+            document.body.classList.add(anchorClass);
+        }
+
+        toggleControlsBtn.addEventListener('pointerdown', startSettingsHold);
+        toggleControlsBtn.addEventListener('pointerup', stopSettingsHold);
+        toggleControlsBtn.addEventListener('pointercancel', stopSettingsHold);
+        toggleControlsBtn.addEventListener('pointerleave', stopSettingsHold);
+        toggleControlsBtn.addEventListener('contextmenu', event => event.preventDefault());
+        toggleControlsBtn.addEventListener('click', () => {
+            if (settingsHoldHandled) {
+                settingsHoldHandled = false;
+                return;
+            }
+            toggleControls();
+        });
 
         function toggleMinimizeReadouts() {
             const content = document.getElementById('readoutContent');
