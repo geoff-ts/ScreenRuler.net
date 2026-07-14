@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>About — Screen Ruler</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-full bg-black text-neutral-200 antialiased">
+    <main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-12">
+        <a href="index.html" class="mb-10 inline-flex w-fit items-center gap-2 text-sm font-semibold text-emerald-400 transition-colors hover:text-emerald-300">
+            <span aria-hidden="true">&larr;</span> Back to Screen Ruler
+        </a>
+
+        <section class="rounded-3xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-2xl sm:p-9">
+            <p class="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">Screen Ruler</p>
+            <h1 class="mb-8 text-3xl font-bold text-white">More info &amp; support the dev</h1>
+
+            <div class="space-y-8 leading-relaxed text-neutral-300">
+                <section>
+                    <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-white">Why I made it</h2>
+                    <p>I’m a woodworker and a coder and I can't ever seem to find a ruler outside my workshop. So I made one, Screen Ruler is a straightforward ruler, some roughly accurate calipers, a perfectly cromulent protractor, and a Bubble Level I'm actually rather proud of. The big thing is the ruler that can be calibrated against the screen already in your hand.</p>
+                </section>
+
+                <section>
+                    <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-white">Privacy &amp; planned ads</h2>
+                    <p>Screen Ruler does not collect personal information: it does not ask for your name, email address, account, contacts or precise location, and its calibration preferences stay in your browser. If you choose the optional Online Device Match, the browser-provided device model hint and screen dimensions are sent to the matching service solely to identify the screen. There are no ads on the site today, but I plan to place a Google ad banner at the bottom to help pay for it. When that happens, Google and its advertising partners may use cookies, IP addresses or similar identifiers for ad delivery and measurement; Google explains those practices in its <a class="text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300" href="https://policies.google.com/technologies/ads">advertising privacy information</a>.</p>
+                </section>
+
+                <section>
+                    <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-white">How it works</h2>
+                    <p>Screen Ruler turns the screen’s pixel dimensions and a selected display diagonal into a calibrated scale. Its local phone presets are curated from openly licensed device-specification data, including the <a class="text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300" href="https://www.kaggle.com/datasets/rajibdab/global-smartphone-database-2025">Global Smartphone Database 2025</a>, alongside public manufacturer specifications and model-code aliases. It tries the model hint supplied by your browser first; if that does not identify a device, the optional Online Device Match can use MobileAPI as a third-party fallback. You can always select a device or calibrate manually instead.</p>
+                </section>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -205,10 +205,10 @@ Y +0°</span>
             </div>
 
             <div class="pointer-events-auto flex flex-col items-end gap-2 transition-all duration-300" id="greetingContainer">
-                <div class="bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-xs px-3 py-2 rounded-xl backdrop-blur-md shadow-lg text-right">
-                    <span class="font-bold block text-emerald-400" id="activeDeviceBadge">Calibrated Mode</span>
-                    <span class="opacity-80 text-[10px]" id="activeDiagonalBadge">6.55" Layout</span>
-                </div>
+                <a href="about.html" class="bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-xs px-3 py-2 rounded-xl backdrop-blur-md shadow-lg text-right transition-colors hover:border-emerald-500/60 hover:bg-neutral-800" title="More information and ways to support the developer">
+                    <span class="font-bold block text-emerald-400">More info</span>
+                    <span class="opacity-80 text-[10px]">Support the dev &rarr;</span>
+                </a>
             </div>
         </div>
 
@@ -218,7 +218,7 @@ Y +0°</span>
             <div id="settingsCard" class="pointer-events-auto bg-neutral-900/95 backdrop-blur-lg border border-neutral-800 rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-y-auto shadow-2xl transition-all duration-300 translate-y-0 scale-100 opacity-100 flex flex-col">
                 <div class="grid grid-cols-3 border-b border-neutral-800 text-xs font-semibold text-neutral-400">
                     <button onclick="setTab('calibrate')" id="tabBtn-calibrate" class="py-3 text-center border-b-2 border-emerald-500 text-white hover:bg-neutral-800/40 rounded-tl-2xl">Calibrate</button>
-                    <button onclick="setTab('guides')" id="tabBtn-guides" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40">Guides</button>
+                    <button onclick="setTab('guides')" id="tabBtn-guides" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40">Tools</button>
                     <button onclick="setTab('theme')" id="tabBtn-theme" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40 rounded-tr-2xl">Theme</button>
                 </div>
 
@@ -361,6 +361,13 @@ Y +0°</span>
                                     <option value="decimal">Decimals (0.00)</option>
                                 </select>
                             </div>
+                            <div class="border-t border-neutral-800/50 pt-3">
+                                <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Units on Rulers</label>
+                                <select id="rulerUnitsSelect" onchange="setRulerUnits(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
+                                    <option value="metric-primary">Millimetres on top and left</option>
+                                    <option value="imperial-primary">Inches on top and left</option>
+                                </select>
+                            </div>
                             <button onclick="resetCalipers()" class="w-full mt-2 bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 py-2 text-xs font-bold uppercase rounded-xl transition-all">
                                 Reset Caliper Locations
                             </button>
@@ -385,8 +392,9 @@ Y +0°</span>
             </div>
 
             <button id="toggleControlsBtn" onclick="toggleControls()" class="pointer-events-auto w-14 h-14 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-850 active:scale-95 transition-all opacity-95">
-                <svg id="rulerToggleIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 text-emerald-400 transition-transform">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-3-15v15M4.5 9.75v-.75a1.5 1.5 0 011.5-1.5h12a1.5 1.5 0 011.5 1.5v.75m-15 0a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5m-15 0v3m15-3v3m0 0a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5m15 0v3a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V15" />
+                <svg id="rulerToggleIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" class="w-6 h-6 text-emerald-400 transition-transform" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3.25"></circle>
+                    <path stroke-linecap="round" d="M12 2.75v2.5M12 18.75v2.5M21.25 12h-2.5M5.25 12h-2.5M18.54 5.46l-1.77 1.77M7.23 16.77l-1.77 1.77M18.54 18.54l-1.77-1.77M7.23 7.23 5.46 5.46"></path>
                 </svg>
             </button>
         </div>
@@ -453,6 +461,12 @@ Y +0°</span>
         const devicePresetData = window.SCREEN_RULER_DEVICE_DATA || { presets: [], modelAliases: [] };
         const PRESETS = devicePresetData.presets;
         const MODEL_TO_PRESET = devicePresetData.modelAliases;
+        const MODEL_ALIASES_BY_PRESET = new Map();
+        MODEL_TO_PRESET.forEach(([model, presetName]) => {
+            const aliases = MODEL_ALIASES_BY_PRESET.get(presetName) || [];
+            aliases.push(model);
+            MODEL_ALIASES_BY_PRESET.set(presetName, aliases);
+        });
         let detectedDeviceModel = '';
         const onlineLookupConfig = window.SCREEN_RULER_CONFIG || {};
         let onlineLookupInFlight = false;
@@ -474,7 +488,7 @@ Y +0°</span>
                     detectedDeviceModel = (hints.model || '').trim();
                 }
             } catch (_) {
-                // Client hints are optional; the resolution/DPR matching path below is still useful.
+                // Client hints are optional; a device can still be selected manually.
             }
 
             if (!detectedDeviceModel) {
@@ -572,12 +586,12 @@ Y +0°</span>
         let showGrid = 'metric';
         let showCalipers = true;
         let showProtractor = false;
-        let protractorSelectedOnce = false;
         let protractorAngleA = 35;
         let protractorAngleB = 125;
         let activeProtractorGuide = null;
         let activeProtractorPointerId = null;
         let inchFormat = localStorage.getItem('calibrated_ruler_inch_format') || 'fraction';
+        let rulerUnitOrder = localStorage.getItem('calibrated_ruler_unit_order') || 'metric-primary';
 
         // Custom device calculations state
         let customWidth = 1080;
@@ -636,6 +650,7 @@ Y +0°</span>
             initSearchDropdowns();
             initBubbleLevel();
             document.getElementById('inchFormatSelect').value = inchFormat;
+            document.getElementById('rulerUnitsSelect').value = rulerUnitOrder;
             detectDeviceProfile().finally(() => {
                 checkFirstTimeOnboarding();
                 resizeCanvas();
@@ -727,6 +742,13 @@ Y +0°</span>
             document.getElementById('bestGuessExplanation').textContent =
                 'Is this your device and screen size? It determines the size of the ruler on screen. If it’s not, just go to the Calibrate tab to get the ruler accurate.';
 
+            document.getElementById('bestGuessExplanation').innerHTML =
+                `We use your browser's model hint where available, rather than assuming an Android phone from its resolution. Detected screen resolution: <span class="text-emerald-400 font-mono font-bold">${realW} &times; ${realH}</span> (Device Pixel Ratio <span class="text-emerald-400 font-mono font-bold">${dpr}</span>).`;
+            if (detectedDeviceModel) {
+                document.getElementById('bestGuessExplanation').innerHTML +=
+                    ` Browser model hint: <span class="text-emerald-400 font-mono font-bold">${escapeHtml(detectedDeviceModel)}</span>.`;
+            }
+
             if (savedPpi && savedDiag) {
                 ppi = parseFloat(savedPpi);
                 diagonal = parseFloat(savedDiag);
@@ -740,17 +762,24 @@ Y +0°</span>
                 applySavedMetrics();
             } else {
                 const guess = makeBestResolutionGuess();
-                activePresetName = guess.name;
-                diagonal = guess.diagonal;
-                scaleReferenceDiagonal = guess.diagonal;
-                
-                customWidth = guess.wMatch;
-                customHeight = guess.hMatch;
-                customDiagonal = guess.diagonal;
+                if (guess) {
+                    activePresetName = guess.name;
+                    diagonal = guess.diagonal;
+                    scaleReferenceDiagonal = guess.diagonal;
+                    customWidth = guess.wMatch;
+                    customHeight = guess.hMatch;
+                    customDiagonal = guess.diagonal;
+                    document.getElementById('onboardSearchInput').value = guess.name;
+                    handleOnboardSelect(guess.name);
+                } else {
+                    activePresetName = 'Choose a device';
+                    customWidth = realW;
+                    customHeight = realH;
+                    customDiagonal = diagonal;
+                    document.getElementById('onboardSearchInput').value = '';
+                    handleOnboardSelect('CUSTOM_DEVICE');
+                }
                 updateCustomInputsUI();
-
-                document.getElementById('onboardSearchInput').value = guess.name;
-                handleOnboardSelect(guess.name);
 
                 const modal = document.getElementById('onboardingModal');
                 modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -759,20 +788,14 @@ Y +0°</span>
 
         function makeBestResolutionGuess() {
             const { width: screenW, height: screenH } = getPhysicalScreenResolution();
-            const normalisedModel = detectedDeviceModel.toUpperCase();
-            const modelMatch = MODEL_TO_PRESET.find(([modelFragment]) => normalisedModel.includes(modelFragment));
-            if (modelMatch) {
-                const exactPreset = PRESETS.find(p => p.name === modelMatch[1]);
-                if (exactPreset) return exactPreset;
-            }
+            const modelMatch = findPresetFromModelHint(detectedDeviceModel);
+            if (modelMatch) return modelMatch;
 
-            // iOS normally exposes only the generic "iPhone" model. In that case,
-            // use the physical resolution to distinguish iPhones, rather than letting
-            // a similarly sized Android handset win the general resolution match.
-            const isGenericIphoneHint = normalisedModel === 'IPHONE';
-            const resolutionCandidates = isGenericIphoneHint
-                ? PRESETS.filter(p => p.name.startsWith('iPhone'))
-                : PRESETS.filter(p => !p.name.startsWith('iPhone'));
+            // iOS normally exposes only the generic "iPhone" model. Keep a
+            // resolution fallback only for that explicitly generic iPhone hint.
+            const isGenericIphoneHint = normaliseModelText(detectedDeviceModel) === 'IPHONE';
+            if (!isGenericIphoneHint) return null;
+            const resolutionCandidates = PRESETS.filter(p => p.name.startsWith('iPhone'));
             
             let matched = resolutionCandidates[0] || PRESETS[0];
             let minDiff = Infinity;
@@ -787,6 +810,65 @@ Y +0°</span>
                 }
             });
             return matched;
+        }
+
+        function normaliseModelText(value) {
+            return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+        }
+
+        function tokeniseDeviceText(value) {
+            return String(value || '').toUpperCase().match(/[A-Z0-9]+/g) || [];
+        }
+
+        function getPresetSearchText(preset) {
+            return [preset.name, ...(MODEL_ALIASES_BY_PRESET.get(preset.name) || [])].join(' ');
+        }
+
+        function isSamsungModelHint(model) {
+            return /\bSAMSUNG\b/i.test(model) || /^SM[\s._-]*[A-Z]\d{3}/i.test(model.trim());
+        }
+
+        function modelTokenMatches(candidateToken, queryToken) {
+            return candidateToken.startsWith(queryToken) ||
+                (candidateToken.length >= 4 && queryToken.startsWith(candidateToken));
+        }
+
+        function findPresetFromModelHint(model) {
+            const hint = String(model || '').trim();
+            const compactHint = normaliseModelText(hint);
+            if (!compactHint || compactHint === 'IPHONE') return null;
+
+            // Manufacturer codes may include a regional suffix (SM-A736B). Match
+            // the stable code prefix before considering a consumer-facing name.
+            const aliasMatch = MODEL_TO_PRESET
+                .map(([alias, presetName]) => ({ alias: normaliseModelText(alias), presetName }))
+                .filter(({ alias }) => alias.length >= 4 && compactHint.includes(alias))
+                .sort((a, b) => b.alias.length - a.alias.length)[0];
+            if (aliasMatch) return PRESETS.find(preset => preset.name === aliasMatch.presetName) || null;
+
+            const queryTokens = tokeniseDeviceText(hint);
+            const genericTokens = new Set(['ANDROID', 'GALAXY', 'IPHONE', 'MOBILE', 'PHONE', 'SAMSUNG', 'SM']);
+            if (!queryTokens.some(token => !genericTokens.has(token) && token.length >= 2)) return null;
+
+            const candidates = isSamsungModelHint(hint)
+                ? PRESETS.filter(preset => preset.name.startsWith('Samsung '))
+                : PRESETS.filter(preset => !preset.name.startsWith('iPhone'));
+            const directMatches = candidates.filter(preset => {
+                const compactPresetName = normaliseModelText(preset.name.replace(/\s*\([^)]*\)\s*$/, ''));
+                if (compactPresetName.includes(compactHint) || compactHint.includes(compactPresetName)) return true;
+                const candidateTokens = tokeniseDeviceText(getPresetSearchText(preset));
+                let start = 0;
+                return queryTokens.every(queryToken => {
+                    const found = candidateTokens.findIndex((candidateToken, index) =>
+                        index >= start && modelTokenMatches(candidateToken, queryToken)
+                    );
+                    if (found < 0) return false;
+                    start = found + 1;
+                    return true;
+                });
+            });
+
+            return directMatches.length === 1 ? directMatches[0] : null;
         }
 
         function escapeHtml(value) {
@@ -855,6 +937,7 @@ Y +0°</span>
         function showDeviceDropdown(visible) {
             const list = document.getElementById('deviceDropdownList');
             if (visible) {
+                filterDevicePresets(document.getElementById('deviceSearchInput').value);
                 mountDeviceDropdown();
                 positionDeviceDropdown();
                 list.classList.remove('hidden');
@@ -863,25 +946,64 @@ Y +0°</span>
         }
 
         function matchesDeviceSearch(name, query) {
+            return scoreDeviceSearch({ name }, query) >= 0;
+        }
+
+        function scoreDeviceSearch(preset, query) {
             const queryTerms = query.toLowerCase().match(/[a-z0-9]+/g) || [];
-            if (!queryTerms.length) return true;
-            const nameTerms = name.toLowerCase().match(/[a-z0-9]+/g) || [];
-            let searchStart = 0;
-            return queryTerms.every(term => {
-                const foundAt = nameTerms.findIndex((nameTerm, index) =>
-                    index >= searchStart && nameTerm.startsWith(term)
+            if (!queryTerms.length) return 0;
+            const searchableText = getPresetSearchText(preset).toLowerCase();
+            const nameTerms = searchableText.match(/[a-z0-9]+/g) || [];
+            let score = 0;
+            for (const term of queryTerms) {
+                const foundAt = nameTerms.findIndex(nameTerm =>
+                    nameTerm.startsWith(term) ||
+                    (nameTerm.length >= 4 && term.startsWith(nameTerm))
                 );
-                if (foundAt < 0) return false;
-                searchStart = foundAt + 1;
-                return true;
+                if (foundAt < 0) return -1;
+                const matchingTerm = nameTerms[foundAt];
+                score += matchingTerm === term ? 250 : (matchingTerm.startsWith(term) ? 125 : 75);
+                score -= foundAt * 0.01;
+            }
+
+            const compactQuery = normaliseModelText(query);
+            const compactPresetName = normaliseModelText(preset.name.replace(/\s*\([^)]*\)\s*$/, ''));
+            const compactAliases = (MODEL_ALIASES_BY_PRESET.get(preset.name) || []).map(normaliseModelText);
+            const retailTerms = preset.name.toLowerCase().match(/[a-z0-9]+/g) || [];
+            const specificQueryTerms = queryTerms.filter(term => /^(?:[a-z]\d+|\d+)$/i.test(term));
+            const variantTerms = new Set(['plus', 'ultra', 'pro', 'fe', 'lite', 'max', 'mini']);
+            const queryNamesVariant = queryTerms.some(term => variantTerms.has(term));
+            const presetNamesVariant = /\+/.test(preset.name) || retailTerms.some(term => variantTerms.has(term));
+            specificQueryTerms.forEach(term => {
+                const retailMatch = retailTerms.indexOf(term);
+                if (retailMatch < 0) return;
+                score += 1000;
+                if (!queryNamesVariant && presetNamesVariant) {
+                    score -= 600;
+                }
             });
+            if (compactAliases.some(alias => alias === compactQuery)) score += 10000;
+            else if (compactAliases.some(alias => compactQuery.startsWith(alias) || alias.startsWith(compactQuery))) score += 7000;
+            else if (compactPresetName === compactQuery) score += 9000;
+            else if (compactPresetName.includes(compactQuery)) score += 1500;
+            return score;
+        }
+
+        function getBestDevicePresetMatches(query, limit = 100) {
+            if (!(query || '').trim()) return PRESETS.slice(0, limit);
+            return PRESETS
+                .map((preset, index) => ({ preset, index, score: scoreDeviceSearch(preset, query) }))
+                .filter(match => match.score >= 0)
+                .sort((a, b) => b.score - a.score || a.index - b.index)
+                .slice(0, limit)
+                .map(match => match.preset);
         }
 
         function filterDevicePresets(query) {
             const list = document.getElementById('deviceDropdownList');
             list.innerHTML = '';
             
-            const filtered = PRESETS.filter(p => matchesDeviceSearch(p.name, query));
+            const filtered = getBestDevicePresetMatches(query);
             
             filtered.forEach(p => {
                 const div = document.createElement('div');
@@ -916,7 +1038,10 @@ Y +0°</span>
 
         function showOnboardDropdown(visible) {
             const list = document.getElementById('onboardDropdownList');
-            if (visible) list.classList.remove('hidden');
+            if (visible) {
+                filterOnboardPresets(document.getElementById('onboardSearchInput').value);
+                list.classList.remove('hidden');
+            }
             else setTimeout(() => list.classList.add('hidden'), 200);
         }
 
@@ -924,7 +1049,7 @@ Y +0°</span>
             const list = document.getElementById('onboardDropdownList');
             list.innerHTML = '';
             
-            const filtered = PRESETS.filter(p => matchesDeviceSearch(p.name, query));
+            const filtered = getBestDevicePresetMatches(query);
             
             filtered.forEach(p => {
                 const div = document.createElement('div');
@@ -988,8 +1113,10 @@ Y +0°</span>
             document.getElementById('diagonalDisplay').value = customDiagonal.toFixed(2);
             setFineScaleRange(ppi);
             
-            document.getElementById('activeDeviceBadge').innerText = "Custom Spec";
-            document.getElementById('activeDiagonalBadge').innerText = customDiagonal.toFixed(2) + '" Layout';
+            const activeDeviceBadge = document.getElementById('activeDeviceBadge');
+            const activeDiagonalBadge = document.getElementById('activeDiagonalBadge');
+            if (activeDeviceBadge) activeDeviceBadge.innerText = "Custom Spec";
+            if (activeDiagonalBadge) activeDiagonalBadge.innerText = customDiagonal.toFixed(2) + '" Layout';
 
             localStorage.setItem('calibrated_ruler_ppi', ppi);
             localStorage.setItem('calibrated_ruler_diagonal', diagonal);
@@ -1081,8 +1208,10 @@ Y +0°</span>
             document.getElementById('diagonalDisplay').value = diagonal.toFixed(2);
             setFineScaleRange(ppi);
             
-            document.getElementById('activeDeviceBadge').innerText = activePresetName.replace(/ \([^)]*\)/, '');
-            document.getElementById('activeDiagonalBadge').innerText = diagonal.toFixed(2) + '" Layout';
+            const activeDeviceBadge = document.getElementById('activeDeviceBadge');
+            const activeDiagonalBadge = document.getElementById('activeDiagonalBadge');
+            if (activeDeviceBadge) activeDeviceBadge.innerText = activePresetName.replace(/ \([^)]*\)/, '');
+            if (activeDiagonalBadge) activeDiagonalBadge.innerText = diagonal.toFixed(2) + '" Layout';
             
             checkPresetMatch(activePresetName);
             filterDevicePresets('');
@@ -1131,8 +1260,10 @@ Y +0°</span>
 
             setFineScaleRange(ppi);
             
-            document.getElementById('activeDeviceBadge').innerText = "Custom Spec";
-            document.getElementById('activeDiagonalBadge').innerText = diagonal.toFixed(2) + '" Layout';
+            const activeDeviceBadge = document.getElementById('activeDeviceBadge');
+            const activeDiagonalBadge = document.getElementById('activeDiagonalBadge');
+            if (activeDeviceBadge) activeDeviceBadge.innerText = "Custom Spec";
+            if (activeDiagonalBadge) activeDiagonalBadge.innerText = diagonal.toFixed(2) + '" Layout';
 
             checkPresetMatch(activePresetName);
             localStorage.setItem('calibrated_ruler_ppi', ppi);
@@ -1156,7 +1287,8 @@ Y +0°</span>
             document.getElementById('diagonalSlider').value = diagonal.toFixed(2);
             document.getElementById('diagonalDisplay').value = diagonal.toFixed(2);
             
-            document.getElementById('activeDiagonalBadge').innerText = diagonal.toFixed(2) + '" Layout';
+            const activeDiagonalBadge = document.getElementById('activeDiagonalBadge');
+            if (activeDiagonalBadge) activeDiagonalBadge.innerText = diagonal.toFixed(2) + '" Layout';
 
             checkPresetMatch(activePresetName);
             localStorage.setItem('calibrated_ruler_ppi', ppi);
@@ -1198,6 +1330,12 @@ Y +0°</span>
             inchFormat = value === 'decimal' ? 'decimal' : 'fraction';
             localStorage.setItem('calibrated_ruler_inch_format', inchFormat);
             updateDisplayValues();
+            drawAll();
+        }
+
+        function setRulerUnits(value) {
+            rulerUnitOrder = value === 'imperial-primary' ? 'imperial-primary' : 'metric-primary';
+            localStorage.setItem('calibrated_ruler_unit_order', rulerUnitOrder);
             drawAll();
         }
 
@@ -1400,6 +1538,22 @@ Y +0°</span>
             };
         }
 
+        function normaliseBubbleTiltForDevice(tilt) {
+            // iPhone motion axes are opposite to the bubble's screen-space
+            // convention used by this interface. Invert every signed component
+            // before smoothing so the visual movement and its numeric readout
+            // always agree.
+            if (!/iPhone/i.test(navigator.userAgent)) return tilt;
+            const invert = value => Number.isFinite(value) ? -value : value;
+            return {
+                ...tilt,
+                x: invert(tilt.x),
+                y: invert(tilt.y),
+                edgeForX: invert(tilt.edgeForX),
+                edgeForY: invert(tilt.edgeForY)
+            };
+        }
+
         function updateBubbleLevel(event) {
             if (event.beta === null || event.gamma === null) return;
             // Prefer the direct gravity vector whenever the browser supplies it.
@@ -1416,6 +1570,7 @@ Y +0°</span>
         }
 
         function updateBubbleLevelFromTilt(rawTilt) {
+            rawTilt = normaliseBubbleTiltForDevice(rawTilt);
             const now = performance.now();
             const tiltKeys = ['x', 'y', 'edgeForX', 'edgeForY'].filter(key => Number.isFinite(rawTilt[key]));
             if (!smoothedLevelTilt || now - lastLevelSampleAt > 1000) {
@@ -1498,11 +1653,17 @@ Y +0°</span>
         }
 
         function toggleCalibration(state) { showCalibration = state; drawAll(); }
-        function toggleCaliperVisibility(state) { showCalipers = state; drawAll(); }
+        function toggleCaliperVisibility(state) {
+            showCalipers = state;
+            if (state) {
+                showProtractor = false;
+                document.getElementById('toggleProtractor').checked = false;
+            }
+            drawAll();
+        }
         function toggleProtractor(state) {
             showProtractor = state;
-            if (state && !protractorSelectedOnce) {
-                protractorSelectedOnce = true;
+            if (state) {
                 showCalipers = false;
                 document.getElementById('toggleCalipers').checked = false;
             }
@@ -1837,8 +1998,10 @@ Y +0°</span>
             const h = window.innerHeight;
             ctx.clearRect(0, 0, w, h);
 
-            let bgColor = '#000000', lineMajor = 'rgba(255,255,255,0.4)', lineMinor = 'rgba(255,255,255,0.25)', lineSub = 'rgba(255,255,255,0.1)';
-            let labelC = '#e5e5e5', gridMaj = 'rgba(16,185,129,0.05)', gridMin = 'rgba(16,185,129,0.02)';
+            // OLED Onyx: retain a true black field, while giving the fine grid and
+            // minor ruler divisions enough contrast to remain useful outdoors.
+            let bgColor = '#000000', lineMajor = 'rgba(255,255,255,0.4)', lineMinor = 'rgba(255,255,255,0.30)', lineSub = 'rgba(255,255,255,0.14)';
+            let labelC = '#e5e5e5', gridMaj = 'rgba(16,185,129,0.08)', gridMin = 'rgba(16,185,129,0.035)';
 
             if (currentTheme === 'blueprint') {
                 bgColor = '#0a192f'; lineMajor = 'rgba(255,255,255,0.5)'; lineMinor = 'rgba(255,255,255,0.3)'; lineSub = 'rgba(255,255,255,0.15)';
@@ -2057,56 +2220,72 @@ Y +0°</span>
             const ppm = ppi / 25.4;
             ctx.save(); ctx.font = '9px monospace'; ctx.fillStyle = labelC; ctx.lineWidth = 1;
 
-            // TOP boundary (metric)
-            for (let mm = 0; mm <= w / ppm; mm++) {
-                let x = mm * ppm;
-                if (mm % 10 === 0) { ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 18); ctx.stroke(); if(mm>0&&x<w-10){ctx.textAlign='center'; ctx.fillText(mm/10, x, 28);} }
-                else if (mm % 5 === 0) { ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 12); ctx.stroke(); }
-                else { ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 7); ctx.stroke(); }
-            }
-            // LEFT boundary (metric)
-            for (let mm = 0; mm <= h / ppm; mm++) {
-                let y = mm * ppm;
-                if (mm % 10 === 0) { ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(18, y); ctx.stroke(); if(mm>0&&y<h-10){ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(mm/10, 22, y);} }
-                else if (mm % 5 === 0) { ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(12, y); ctx.stroke(); }
-                else { ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(7, y); ctx.stroke(); }
-            }
-
-            // BOTTOM boundary (imperial - 1/16th divisions)
-            const totalSixteenthsX = Math.floor(w / (ppi / 16));
-            for (let i = 0; i <= totalSixteenthsX; i++) {
-                const x = i * (ppi / 16);
-                if (i % 16 === 0) {
-                    ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 18); ctx.stroke();
-                    if (i > 0 && x < w - 15) {
-                        ctx.textAlign = 'center'; ctx.fillText((i / 16) + '"', x, h - 22);
+            const metricOnTopLeft = rulerUnitOrder !== 'imperial-primary';
+            const drawMetricHorizontal = top => {
+                const edge = top ? 0 : h;
+                const direction = top ? 1 : -1;
+                const labelY = top ? 28 : h - 22;
+                for (let mm = 0; mm <= w / ppm; mm++) {
+                    const x = mm * ppm;
+                    const tick = mm % 10 === 0 ? 18 : (mm % 5 === 0 ? 12 : 7);
+                    ctx.strokeStyle = mm % 10 === 0 ? majorC : (mm % 5 === 0 ? minorC : subMinorC);
+                    ctx.beginPath(); ctx.moveTo(x, edge); ctx.lineTo(x, edge + direction * tick); ctx.stroke();
+                    if (mm % 10 === 0 && mm > 0 && x < w - 10) {
+                        ctx.textAlign = 'center'; ctx.fillText(mm / 10, x, labelY);
                     }
-                } else if (i % 8 === 0) {
-                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 12); ctx.stroke();
-                } else if (i % 4 === 0) {
-                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 9); ctx.stroke();
-                } else {
-                    ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x, h - 5); ctx.stroke();
                 }
-            }
-
-            // RIGHT boundary (imperial - 1/16th divisions)
-            const totalSixteenthsY = Math.floor(h / (ppi / 16));
-            for (let i = 0; i <= totalSixteenthsY; i++) {
-                const y = i * (ppi / 16);
-                if (i % 16 === 0) {
-                    ctx.strokeStyle = majorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 18, y); ctx.stroke();
-                    if (i > 0 && y < h - 15) {
-                        ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText((i / 16) + '"', w - 22, y);
+            };
+            const drawMetricVertical = left => {
+                const edge = left ? 0 : w;
+                const direction = left ? 1 : -1;
+                const labelX = left ? 22 : w - 22;
+                for (let mm = 0; mm <= h / ppm; mm++) {
+                    const y = mm * ppm;
+                    const tick = mm % 10 === 0 ? 18 : (mm % 5 === 0 ? 12 : 7);
+                    ctx.strokeStyle = mm % 10 === 0 ? majorC : (mm % 5 === 0 ? minorC : subMinorC);
+                    ctx.beginPath(); ctx.moveTo(edge, y); ctx.lineTo(edge + direction * tick, y); ctx.stroke();
+                    if (mm % 10 === 0 && mm > 0 && y < h - 10) {
+                        ctx.textAlign = left ? 'left' : 'right'; ctx.textBaseline = 'middle';
+                        ctx.fillText(mm / 10, labelX, y);
                     }
-                } else if (i % 8 === 0) {
-                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 12, y); ctx.stroke();
-                } else if (i % 4 === 0) {
-                    ctx.strokeStyle = minorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 9, y); ctx.stroke();
-                } else {
-                    ctx.strokeStyle = subMinorC; ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(w - 5, y); ctx.stroke();
                 }
-            }
+            };
+            const drawImperialHorizontal = top => {
+                const edge = top ? 0 : h;
+                const direction = top ? 1 : -1;
+                const labelY = top ? 28 : h - 22;
+                const totalSixteenths = Math.floor(w / (ppi / 16));
+                for (let i = 0; i <= totalSixteenths; i++) {
+                    const x = i * (ppi / 16);
+                    const tick = i % 16 === 0 ? 18 : (i % 8 === 0 ? 12 : (i % 4 === 0 ? 9 : 5));
+                    ctx.strokeStyle = i % 16 === 0 ? majorC : (i % 4 === 0 ? minorC : subMinorC);
+                    ctx.beginPath(); ctx.moveTo(x, edge); ctx.lineTo(x, edge + direction * tick); ctx.stroke();
+                    if (i % 16 === 0 && i > 0 && x < w - 15) {
+                        ctx.textAlign = 'center'; ctx.fillText((i / 16) + '"', x, labelY);
+                    }
+                }
+            };
+            const drawImperialVertical = left => {
+                const edge = left ? 0 : w;
+                const direction = left ? 1 : -1;
+                const labelX = left ? 22 : w - 22;
+                const totalSixteenths = Math.floor(h / (ppi / 16));
+                for (let i = 0; i <= totalSixteenths; i++) {
+                    const y = i * (ppi / 16);
+                    const tick = i % 16 === 0 ? 18 : (i % 8 === 0 ? 12 : (i % 4 === 0 ? 9 : 5));
+                    ctx.strokeStyle = i % 16 === 0 ? majorC : (i % 4 === 0 ? minorC : subMinorC);
+                    ctx.beginPath(); ctx.moveTo(edge, y); ctx.lineTo(edge + direction * tick, y); ctx.stroke();
+                    if (i % 16 === 0 && i > 0 && y < h - 15) {
+                        ctx.textAlign = left ? 'left' : 'right'; ctx.textBaseline = 'middle';
+                        ctx.fillText((i / 16) + '"', labelX, y);
+                    }
+                }
+            };
+
+            drawMetricHorizontal(metricOnTopLeft);
+            drawMetricVertical(metricOnTopLeft);
+            drawImperialHorizontal(!metricOnTopLeft);
+            drawImperialVertical(!metricOnTopLeft);
 
             ctx.restore();
         }
@@ -2127,10 +2306,11 @@ Y +0°</span>
             const maxY = Math.max(pointA.y, pointB.y);
 
             const ppm = ppi / 25.4;
+            const metricOnTopLeft = rulerUnitOrder !== 'imperial-primary';
 
-            // Horizontal measurement lines (Line 1: Green Metric, Line 2: Yellow Imperial)
+            // Metric and inch caliper tracks follow the selected ruler sides.
             const mmX = dx / ppm;
-            const hLineY1 = minY - 30;
+            const hLineY1 = metricOnTopLeft ? minY - 30 : maxY + 30;
             ctx.save();
             ctx.strokeStyle = colorA;
             ctx.lineWidth = activePoint === 'A_Y' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
@@ -2151,7 +2331,7 @@ Y +0°</span>
             ctx.restore();
 
             const inX = dx / ppi;
-            const hLineY2 = maxY + 30;
+            const hLineY2 = metricOnTopLeft ? maxY + 30 : minY - 30;
             ctx.save();
             ctx.strokeStyle = colorB;
             ctx.lineWidth = activePoint === 'B_Y' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
@@ -2170,9 +2350,8 @@ Y +0°</span>
             ctx.fillText(labelX_in, minX + dx/2, hLineY2);
             ctx.restore();
 
-            // Vertical measurement lines (Line 1: Green Metric, Line 2: Yellow Imperial)
             const mmY = dy / ppm;
-            const vLineX1 = minX - 30;
+            const vLineX1 = metricOnTopLeft ? minX - 30 : maxX + 30;
             ctx.save();
             ctx.strokeStyle = colorA;
             ctx.lineWidth = activePoint === 'A_X' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;
@@ -2192,7 +2371,7 @@ Y +0°</span>
             ctx.restore();
 
             const inY = dy / ppi;
-            const vLineX2 = maxX + 30;
+            const vLineX2 = metricOnTopLeft ? maxX + 30 : minX - 30;
             ctx.save();
             ctx.strokeStyle = colorB;
             ctx.lineWidth = activePoint === 'B_X' || activePoint === 'A_BOTH' || activePoint === 'B_BOTH' ? 1.75 : 1;

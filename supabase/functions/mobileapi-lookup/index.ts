@@ -56,13 +56,31 @@ function isStrongProviderMatch(candidate: Record<string, unknown>) {
     // display signature: browsers may provide CSS pixels, viewport pixels, or native
     // pixels depending on the platform and privacy settings.
     const type = String(candidate.match_type || '').toLowerCase();
-    return matchCertainty(candidate) >= 95 && (type === 'name' || type === 'model_number');
+    return matchCertainty(candidate) >= 95 && (
+        type === 'name' || type === 'model_number' || type === 'exact_model'
+    );
+}
+
+function extractModelNumberHint(value: string) {
+    // A browser can prefix a code with a brand name or separate it with spaces.
+    // Preserve only a recognised manufacturer-code family for the exact provider
+    // lookup; retail model names continue down the name-search path.
+    const patterns = [
+        /\bSM[\s_-]*[AFGMNS][\s_-]*\d{3,4}[A-Z0-9_-]*\b/i, // Samsung
+        /\b(?:CPH|RMX|RMP)[\s_-]*\d{3,5}[A-Z0-9_-]*\b/i, // OPPO, OnePlus, realme
+        /\bXT[\s_-]*\d{3,5}(?:[\s_-]*\d{1,2})?\b/i, // Motorola
+        /\bXQ[\s_-]*[A-Z0-9]{3,6}\b/i, // Sony Xperia
+        /\bTA[\s_-]*\d{3,5}\b/i, // Nokia/HMD
+        /\bV\d{4,5}\b/i // vivo
+    ];
+    const match = patterns.map(pattern => value.match(pattern)?.[0]).find(Boolean);
+    return match?.toUpperCase().replace(/[\s_]+/g, '').replace(/-+/g, '-') || null;
 }
 
 function looksLikeModelNumber(value: string) {
     // Browser hints such as "motorola edge 40" are marketing names, whereas
-    // identifiers such as "SM-S928B" and "A3520" are model numbers.
-    return /^(?=.*\d)[a-z0-9_-]+$/i.test(value);
+    // identifiers such as "SM-S928B" and "XT2509-1" are model numbers.
+    return Boolean(extractModelNumberHint(value)) || /^(?=.*\d)[a-z0-9_-]+$/i.test(value);
 }
 
 function auditCandidate(candidate: Record<string, unknown>) {
@@ -124,8 +142,9 @@ serve(async (request) => {
         }
 
         const url = new URL('https://api.mobileapi.dev/devices/search/');
+        const providerModel = extractModelNumberHint(model.trim()) || model.trim();
         searchParameter = looksLikeModelNumber(model.trim()) ? 'model_number' : 'name';
-        url.searchParams.set(searchParameter, model.trim());
+        url.searchParams.set(searchParameter, providerModel);
         url.searchParams.set('exact', 'true');
 
         providerCallStarted = true;
