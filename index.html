@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="google-adsense-account" content="ca-pub-4844506276858974">
     <title>Screen Ruler</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="ruler-config.js"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4844506276858974"
+         crossorigin="anonymous"></script>
     <script src="device-presets.js"></script>
     <style>
         body, canvas {
@@ -119,16 +122,54 @@
             bottom: max(0.5rem, env(safe-area-inset-bottom));
             left: 50%;
             transform: translateX(-50%);
-            width: min(calc(100% - 2rem), 728px);
+            width: 320px;
+            height: 70px;
             z-index: 30;
+        }
+        #bottomAdContainer > div {
+            box-sizing: border-box;
+            width: 320px;
+            height: 70px;
+        }
+        /* Google-approved exact-size responsive slot: a compact 320 x 50 banner. */
+        #bottomAdContainer .screen-ruler-ad {
+            display: block;
+            width: 320px;
+            height: 50px;
+        }
+        @media (max-width: 351px) {
+            #bottomAdContainer,
+            #bottomAdContainer > div {
+                width: 300px;
+            }
+            #bottomAdContainer .screen-ruler-ad {
+                width: 300px;
+                height: 50px;
+            }
         }
         /* Keep the settings control clear of the ad to prevent accidental taps. */
         .ad-visible.ad-anchor-bottom #appControlsOverlay {
-            padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+            padding-bottom: calc(var(--ruler-ad-space, 0px) + 0.75rem + env(safe-area-inset-bottom));
         }
-        @media (min-width: 1024px) {
-            .ad-visible.ad-anchor-bottom #appControlsOverlay {
-                padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+        .ad-visible.ad-anchor-bottom #caliperGuideLayer,
+        .ad-visible.ad-anchor-bottom #caliperHandleLayer,
+        .ad-visible.ad-anchor-bottom #bubbleLevelPanel {
+            bottom: var(--ruler-ad-space, 0px) !important;
+        }
+        .ad-visible.ad-anchor-bottom #toggleControlsBtn {
+            position: fixed;
+            right: 1rem;
+            bottom: calc(var(--ruler-ad-space, 0px) + 0.75rem + env(safe-area-inset-bottom));
+            z-index: 40;
+        }
+        @media (max-width: 1023px) {
+            .ad-visible.ad-anchor-bottom #settingsCard {
+                position: fixed;
+                right: 1rem;
+                bottom: calc(var(--ruler-ad-space, 0px) + 5.25rem + env(safe-area-inset-bottom));
+                left: 1rem;
+                width: auto;
+                z-index: 20;
             }
         }
         /* Keep the banner beside the device navigation edge as the device turns. */
@@ -432,10 +473,8 @@ Y +0°</span>
     <aside id="bottomAdContainer" class="fixed hidden pointer-events-auto" aria-label="Advertisement">
         <div class="rounded-lg border border-neutral-700/70 bg-neutral-900/95 px-1 py-0.5 text-center shadow-xl">
             <div class="pointer-events-none mb-0.5 text-[9px] font-medium uppercase tracking-widest text-neutral-500">Advertisement</div>
-            <ins id="bottomAdSlot" class="adsbygoogle block"
-                 style="display:block"
-                 data-ad-format="auto"
-                 data-full-width-responsive="true"></ins>
+            <ins id="bottomAdSlot" class="adsbygoogle screen-ruler-ad"
+                 style="display:block"></ins>
         </div>
     </aside>
 
@@ -690,6 +729,8 @@ Y +0°</span>
         window.addEventListener('orientationchange', resetBubbleLevelSmoothing);
         if (screen.orientation?.addEventListener) screen.orientation.addEventListener('change', updateBottomAdAnchor);
         window.addEventListener('orientationchange', updateBottomAdAnchor);
+        window.addEventListener('resize', updateBottomAdAnchor);
+        window.addEventListener('resize', initializeBottomAd);
 
         mergeDeviceControlsIntoCalibrate();
 
@@ -1794,6 +1835,7 @@ Y +0°</span>
             if (adContainer && !adContainer.classList.contains('hidden')) {
                 document.body.classList.add('ad-visible');
                 updateBottomAdAnchor();
+                syncRulerAdSpace();
             }
 
             drawAll();
@@ -1826,6 +1868,7 @@ Y +0°</span>
             sessionStorage.setItem(AD_DISMISSED_SESSION_KEY, 'true');
             adContainer.classList.add('hidden');
             document.body.classList.remove('ad-visible');
+            syncRulerAdSpace();
             showToast('Ad hidden for this visit.');
         }
 
@@ -1849,74 +1892,75 @@ Y +0°</span>
             const slot = config.bottomAdSlot;
             const hasAdSenseIds = /^ca-pub-\d+$/.test(client || '') && /^\d+$/.test(slot || '');
 
-            if (!hasAdSenseIds || !navigator.onLine || sessionStorage.getItem(AD_DISMISSED_SESSION_KEY) === 'true') return;
+            if (!hasAdSenseIds || sessionStorage.getItem(AD_DISMISSED_SESSION_KEY) === 'true') return;
 
             const adContainer = document.getElementById('bottomAdContainer');
             const adSlot = document.getElementById('bottomAdSlot');
+            if (adContainer.dataset.initialized === 'true') {
+                adContainer.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+                document.body.classList.add('ad-visible');
+                updateBottomAdAnchor();
+                syncRulerAdSpace();
+                return;
+            }
+
             adSlot.dataset.adClient = client;
             adSlot.dataset.adSlot = slot;
             adContainer.classList.remove('hidden');
-            adContainer.classList.add('opacity-0', 'pointer-events-none');
-
-            const adScript = document.createElement('script');
-            adScript.async = true;
-            adScript.crossOrigin = 'anonymous';
-            adScript.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`;
-            adScript.onload = () => {
-                try {
-                    (window.adsbygoogle = window.adsbygoogle || []).push({});
-                    waitForBottomAdFill(adContainer, adSlot);
-                } catch (error) {
-                    console.warn('Unable to load the bottom ad.', error);
-                    hideUnfilledBottomAd(adContainer);
-                }
-            };
-            adScript.onerror = () => hideUnfilledBottomAd(adContainer);
-            document.head.appendChild(adScript);
-        }
-
-        function hideUnfilledBottomAd(adContainer) {
-            adContainer.classList.add('hidden');
             adContainer.classList.remove('opacity-0', 'pointer-events-none');
-            document.body.classList.remove('ad-visible');
-        }
+            document.body.classList.add('ad-visible');
+            updateBottomAdAnchor();
+            syncRulerAdSpace();
+            adContainer.dataset.initialized = 'true';
 
-        function waitForBottomAdFill(adContainer, adSlot) {
-            let timeout;
-            const finish = filled => {
-                window.clearTimeout(timeout);
-                observer.disconnect();
-                if (!filled) {
-                    hideUnfilledBottomAd(adContainer);
-                    return;
-                }
-                adContainer.classList.remove('opacity-0', 'pointer-events-none');
-                document.body.classList.add('ad-visible');
-                updateBottomAdAnchor();
-            };
-            const checkStatus = () => {
-                const status = adSlot.dataset.adStatus;
-                if (status === 'filled' || adSlot.querySelector('iframe')) finish(true);
-                else if (status === 'unfilled') finish(false);
-            };
-            const observer = new MutationObserver(checkStatus);
-            observer.observe(adSlot, { attributes: true, attributeFilter: ['data-ad-status'], childList: true, subtree: true });
-            timeout = window.setTimeout(() => finish(false), 8000);
-            checkStatus();
+            try {
+                (window.adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (error) {
+                console.warn('Unable to initialize the bottom ad.', error);
+            }
         }
 
         function updateBottomAdAnchor() {
             const angle = Number(screen.orientation?.angle ?? window.orientation ?? 0);
             const normalizedAngle = ((angle % 360) + 360) % 360;
-            const anchorClass = {
+            const isMobilePhone = /iPhone|iPod|Android.*Mobile|\bMobile\b/i.test(navigator.userAgent);
+            const isCompactTouchScreen = isMobilePhone && window.matchMedia('(pointer: coarse)').matches &&
+                Math.min(window.innerWidth, window.innerHeight) < 700;
+            const physicalAnchorClasses = {
                 0: 'ad-anchor-bottom',
                 90: 'ad-anchor-left',
                 180: 'ad-anchor-top',
                 270: 'ad-anchor-right'
-            }[normalizedAngle] || 'ad-anchor-bottom';
+            };
+            const anchorClass = isCompactTouchScreen
+                ? (physicalAnchorClasses[normalizedAngle] || 'ad-anchor-bottom')
+                : 'ad-anchor-bottom';
 
             document.body.classList.remove('ad-anchor-bottom', 'ad-anchor-left', 'ad-anchor-top', 'ad-anchor-right');
             document.body.classList.add(anchorClass);
+            window.requestAnimationFrame(syncRulerAdSpace);
+        }
+
+        function getRulerViewportSize() {
+            const adContainer = document.getElementById('bottomAdContainer');
+            const reservesBottomSpace = document.body.classList.contains('ad-visible') &&
+                document.body.classList.contains('ad-anchor-bottom') &&
+                adContainer && !adContainer.classList.contains('hidden');
+            const adSpace = reservesBottomSpace
+                ? Math.ceil(adContainer.getBoundingClientRect().height + 8)
+                : 0;
+            return {
+                width: window.innerWidth,
+                height: Math.max(1, window.innerHeight - adSpace)
+            };
+        }
+
+        function syncRulerAdSpace() {
+            const { height } = getRulerViewportSize();
+            const adSpace = Math.max(0, window.innerHeight - height);
+            document.body.style.setProperty('--ruler-ad-space', `${adSpace}px`);
+            resizeCanvas();
+            drawAll();
         }
 
         toggleControlsBtn.addEventListener('pointerdown', startSettingsHold);
@@ -1940,8 +1984,7 @@ Y +0°</span>
         }
 
         function clampPointsToWindow() {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
+            const { width: w, height: h } = getRulerViewportSize();
             const margin = 35;
             
             pointA.x = Math.max(margin, Math.min(w - margin, pointA.x));
@@ -1952,19 +1995,21 @@ Y +0°</span>
         }
 
         function resizeCanvas() {
+            const { width, height } = getRulerViewportSize();
             const dpr = window.devicePixelRatio || 1;
-            canvas.width = window.innerWidth * dpr;
-            canvas.height = window.innerHeight * dpr;
-            canvas.style.width = window.innerWidth + 'px';
-            canvas.style.height = window.innerHeight + 'px';
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
             ctx.scale(dpr, dpr);
             
             clampPointsToWindow();
         }
 
         function resetCalipers() {
-            pointA = { x: Math.round(window.innerWidth * 0.35), y: Math.round(window.innerHeight * 0.35) };
-            pointB = { x: Math.round(window.innerWidth * 0.65), y: Math.round(window.innerHeight * 0.65) };
+            const { width, height } = getRulerViewportSize();
+            pointA = { x: Math.round(width * 0.35), y: Math.round(height * 0.35) };
+            pointB = { x: Math.round(width * 0.65), y: Math.round(height * 0.65) };
             updateDisplayValues();
             drawAll();
         }
@@ -1990,8 +2035,7 @@ Y +0°</span>
         }
 
         function getProtractorGeometry() {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
+            const { width: w, height: h } = getRulerViewportSize();
             const vertical = h > w;
             const radius = vertical
                 ? Math.max(92, Math.min(h * 0.42, w * 0.62, 390))
@@ -2033,10 +2077,10 @@ Y +0°</span>
             if (!activePoint || e.pointerId !== activePointerId) return;
             const point = activePoint.startsWith('A') ? pointA : pointB;
             if (activePoint.endsWith('BOTH') || activePoint.endsWith('_X')) {
-                point.x = Math.max(0, Math.min(window.innerWidth, e.clientX));
+                point.x = Math.max(0, Math.min(getRulerViewportSize().width, e.clientX));
             }
             if (activePoint.endsWith('BOTH') || activePoint.endsWith('_Y')) {
-                point.y = Math.max(0, Math.min(window.innerHeight, e.clientY));
+                point.y = Math.max(0, Math.min(getRulerViewportSize().height, e.clientY));
             }
             caliperDraggedThisInteraction = true;
             e.preventDefault();
@@ -2062,10 +2106,10 @@ Y +0°</span>
             const point = which.startsWith('A') ? pointA : pointB;
             const step = e.shiftKey ? 10 : 1;
             if (which.endsWith('BOTH') || which.endsWith('_X')) {
-                point.x = Math.max(0, Math.min(window.innerWidth, point.x + offsets[e.key][0] * step));
+                point.x = Math.max(0, Math.min(getRulerViewportSize().width, point.x + offsets[e.key][0] * step));
             }
             if (which.endsWith('BOTH') || which.endsWith('_Y')) {
-                point.y = Math.max(0, Math.min(window.innerHeight, point.y + offsets[e.key][1] * step));
+                point.y = Math.max(0, Math.min(getRulerViewportSize().height, point.y + offsets[e.key][1] * step));
             }
             e.preventDefault();
             updateDisplayValues();
@@ -2162,8 +2206,7 @@ Y +0°</span>
         }
 
         function drawAll() {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
+            const { width: w, height: h } = getRulerViewportSize();
             ctx.clearRect(0, 0, w, h);
 
             // OLED Onyx: retain a true black field, while giving the fine grid and
