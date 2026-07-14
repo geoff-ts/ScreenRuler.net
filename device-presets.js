@@ -1,8 +1,8 @@
 // Offline-first reviewed device presets. Keep entries concise and versioned in Git.
 // Comprehensive local phone coverage: curated current presets plus 2,864 de-duplicated
 // smartphone records from the Global Smartphone Database 2025 (Apache-2.0; 4,144
-// devices, scraped 29 July 2025). Storage/RAM variants and non-smartphone entries are
-// excluded; every record has a parsed diagonal and native screen resolution.
+// devices, scraped 29 July 2025). Storage/RAM variants are excluded. A small set of
+// complete tablet records is also included from OpenSTF's device database (CC-BY-SA 4.0).
 window.SCREEN_RULER_DEVICE_DATA = {
     presets: [
         ['Motorola Edge 50 Pro (6.7")', 6.7, 1220, 2712], ['Motorola Edge 40 (6.55")', 6.55, 1080, 2400], ['Motorola Edge (2023) (6.6")', 6.6, 1080, 2400], ['Motorola Moto G Power 5G (2024) (6.7")', 6.7, 1080, 2400], ['Motorola Moto G Stylus 5G (2024) (6.7")', 6.7, 1080, 2400], ['Motorola Moto G Play (2024) (6.5")', 6.5, 720, 1600], ['Motorola Razr Foldable (6.9")', 6.9, 1080, 2640],
@@ -3278,6 +3278,22 @@ window.SCREEN_RULER_DEVICE_DATA = {
         ["ZTE nubia Z60S Pro (6.8\\\")", 6.8, 1260, 2800],
         ["ZTE nubia Z70 Ultra (6.85\\\")", 6.85, 1216, 2688],
         ["ZTE Voyage 3D (6.58\\\")", 6.58, 1080, 2408],
+        // Tablet records with complete physical diagonal and native display resolution.
+        ['Amazon Kindle Fire HDX 7 (7.0")', 7, 1200, 1920],
+        ['Asus MeMO Pad 7 (7.0")', 7, 800, 1280],
+        ['Samsung Galaxy Tab 4 7.0 (7.0")', 7, 800, 1280],
+        ['Sharp AQUOS PAD (7.0")', 7, 1200, 1920],
+        ['Asus Nexus 7 (7.02")', 7.02, 1200, 1920],
+        ['Asus MeMO Pad 8 (8.0")', 8, 1200, 1920],
+        ['Lenovo Yoga Tablet 8 (8.0")', 8, 1280, 1600],
+        ['Nvidia SHIELD Tablet (8.0")', 8, 1200, 1920],
+        ['Samsung Galaxy Tab S 8.4 (8.4")', 8.4, 1600, 2560],
+        ['HTC Nexus 9 (8.9")', 8.9, 1536, 2048],
+        ['Fujitsu ARROWS Tab F-02F (10.1")', 10.1, 1600, 2560],
+        ['Sony Xperia Z2 Tablet (10.1")', 10.1, 1200, 1920],
+        ['Sony Xperia Z4 Tablet (10.1")', 10.1, 1600, 2560],
+        ['Fujitsu ARROWS Tab F-03G (10.5")', 10.5, 1600, 2560],
+        ['Samsung Galaxy Note Pro 12.2 LTE (12.2")', 12.2, 1600, 2560],
     ].map(([name, diagonal, wMatch, hMatch]) => ({ name, diagonal, wMatch, hMatch })),
     modelAliases: [
         ['SM-S928', 'Samsung Galaxy S24 Ultra (6.8")'], ['SM-S926', 'Samsung Galaxy S24+ (6.7")'], ['SM-S921', 'Samsung Galaxy S24 (6.2")'], ['SM-S918', 'Samsung Galaxy S23 Ultra (6.8")'], ['SM-S916', 'Samsung Galaxy S23+ (6.6")'], ['SM-S911', 'Samsung Galaxy S23 (6.1")'], ['SM-S908', 'Samsung Galaxy S22 Ultra (6.8")'], ['SM-S901', 'Samsung Galaxy S22 (6.1")'], ['SM-G998', 'Samsung Galaxy S21 Ultra (6.8")'], ['SM-G991', 'Samsung Galaxy S21 (6.2")'], ['SM-A736', 'Samsung Galaxy A73 5G (6.7")'], ['SM-A556', 'Samsung Galaxy A55 (6.6")'], ['SM-A546', 'Samsung Galaxy A54 5G (6.4")'], ['SM-A536', 'Samsung Galaxy A53 5G (6.5")'], ['SM-A528', 'Samsung Galaxy A52s 5G (6.5")'], ['SM-A526', 'Samsung Galaxy A52 (6.5")'], ['SM-A356', 'Samsung Galaxy A35 5G (6.6")'], ['SM-A346', 'Samsung Galaxy A34 5G (6.6")'], ['SM-A336', 'Samsung Galaxy A33 5G (6.4")'], ['SM-A256', 'Samsung Galaxy A25 (6.5")'], ['SM-A245', 'Samsung Galaxy A24 (6.5")'], ['SM-A236', 'Samsung Galaxy A23 (6.6")'], ['SM-A226', 'Samsung Galaxy A22 (6.4")'], ['SM-A166', 'Samsung Galaxy A16 5G (6.7")'], ['SM-A156', 'Samsung Galaxy A15 5G (6.5")'], ['SM-A146', 'Samsung Galaxy A14 4G (6.6")'], ['SM-A135', 'Samsung Galaxy A13 (6.6")'], ['SM-A057', 'Samsung Galaxy A05s (6.7")'], ['SM-A055', 'Samsung Galaxy A05 (6.7")'], ['SM-A047', 'Samsung Galaxy A04s (6.5")'], ['SM-A035', 'Samsung Galaxy A03s (6.5")'], ['SM-M556', 'Samsung Galaxy M55 (6.7")'], ['SM-M356', 'Samsung Galaxy M35 (6.6")'], ['SM-M346', 'Samsung Galaxy M34 5G (6.5")'], ['SM-M336', 'Samsung Galaxy M33 (6.6")'], ['SM-M156', 'Samsung Galaxy M15 (6.5")'], ['SM-M146', 'Samsung Galaxy M14 4G (6.7")'],
@@ -3290,6 +3306,7 @@ window.SCREEN_RULER_DEVICE_DATA = {
         ['RMX3820', 'Realme GT 5 (6.74")'], ['RMX3842', 'Realme 12 Pro (6.7")'], ['RMX3843', 'Realme 12 Pro (6.7")'], ['RMX3851', 'Realme GT 6 (6.78")'], ['RMX3853', 'Realme GT 6T (6.78")'], ['RMX3930', 'Realme C61 (6.74")'], ['RMX3950', 'Realme C63 (6.74")'], ['RMX3997', 'Realme C65 5G (6.67")'], ['RMX3998', 'Realme Narzo 70x (6.72")'], ['RMX5004', 'Realme P1 Speed (6.67")'],
         ['MOTOROLA RAZR ULTRA 2025', 'Motorola Razr Ultra (2025) (7.0")'], ['MOTOROLA RAZR+ 2025', 'Motorola Razr+ (2025) (6.9")'], ['MOTOROLA RAZR 50 ULTRA', 'Motorola Razr 50 Ultra (6.9")'], ['MOTO G POWER 2025', 'Motorola Moto G Power (2025) (6.8")'], ['MOTOROLA EDGE 60 PRO', 'Motorola Edge 60 Pro (6.7")'], ['MOTOROLA EDGE 60 NEO', 'Motorola Edge 60 Neo (6.36")'], ['MOTOROLA EDGE 50 PRO', 'Motorola Edge 50 Pro (6.7")'], ['MOTOROLA EDGE 50', 'Motorola Edge 50 (6.67")'], ['MOTOROLA EDGE 40', 'Motorola Edge 40 (6.55")'],
         ['HUAWEI MATE 60 PRO', 'Huawei Mate 60 Pro (6.82")'], ['HUAWEI P30 PRO', 'Huawei P30 Pro (6.47")'], ['XIAOMI 14 ULTRA', 'Xiaomi 14 Ultra (6.73")'], ['XIAOMI 13 PRO', 'Xiaomi 13 Pro (6.73")'], ['XIAOMI 14', 'Xiaomi 14 (6.36")'], ['XPERIA 1 V', 'Sony Xperia 1 V (6.5")'], ['XPERIA 5 V', 'Sony Xperia 5 V (6.1")'],
-        ['ZENFONE 11 ULTRA', 'Asus Zenfone 11 Ultra (6.78")'], ['ROG PHONE 8', 'Asus ROG Phone 8 (6.78")'], ['HONOR MAGIC6 PRO', 'Honor Magic6 Pro (6.8")'], ['OPPO FIND X6 PRO', 'Oppo Find X6 Pro (6.82")'], ['NOTHING PHONE 2', 'Nothing Phone (2) (6.7")'], ['VIVO X100 PRO', 'Vivo X100 Pro (6.78")'], ['VIVO V29 PRO', 'Vivo V29 Pro (6.78")'], ['REALME GT 5', 'Realme GT 5 (6.74")'], ['REALME 12 PRO', 'Realme 12 Pro (6.7")'], ['OPPO RENO10 PRO', 'Oppo Reno10 Pro (6.7")']
+        ['ZENFONE 11 ULTRA', 'Asus Zenfone 11 Ultra (6.78")'], ['ROG PHONE 8', 'Asus ROG Phone 8 (6.78")'], ['HONOR MAGIC6 PRO', 'Honor Magic6 Pro (6.8")'], ['OPPO FIND X6 PRO', 'Oppo Find X6 Pro (6.82")'], ['NOTHING PHONE 2', 'Nothing Phone (2) (6.7")'], ['VIVO X100 PRO', 'Vivo X100 Pro (6.78")'], ['VIVO V29 PRO', 'Vivo V29 Pro (6.78")'], ['REALME GT 5', 'Realme GT 5 (6.74")'], ['REALME 12 PRO', 'Realme 12 Pro (6.7")'], ['OPPO RENO10 PRO', 'Oppo Reno10 Pro (6.7")'],
+        ['KFTHWI', 'Amazon Kindle Fire HDX 7 (7.0")'], ['K013', 'Asus MeMO Pad 7 (7.0")'], ['403SC', 'Samsung Galaxy Tab 4 7.0 (7.0")'], ['SH-05G', 'Sharp AQUOS PAD (7.0")'], ['AST21', 'Asus MeMO Pad 8 (8.0")'], ['B6000-F', 'Lenovo Yoga Tablet 8 (8.0")'], ['SHIELD TABLET', 'Nvidia SHIELD Tablet (8.0")'], ['SC-03G', 'Samsung Galaxy Tab S 8.4 (8.4")'], ['F-02F', 'Fujitsu ARROWS Tab F-02F (10.1")'], ['SGP511JP', 'Sony Xperia Z2 Tablet (10.1")'], ['SO-05G', 'Sony Xperia Z4 Tablet (10.1")'], ['F-03G', 'Fujitsu ARROWS Tab F-03G (10.5")'], ['SM-P905', 'Samsung Galaxy Note Pro 12.2 LTE (12.2")']
     ]
 };

@@ -232,16 +232,6 @@ Y +0°</span>
                                 <div id="deviceDropdownList" class="hidden absolute left-0 right-0 bottom-full mb-1 max-h-60 overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50"></div>
                             </div>
                         </div>
-                        <div class="border-t border-neutral-800/50 pt-3 space-y-2">
-                            <div class="flex items-center justify-between gap-3">
-                                <div>
-                                    <div class="text-xs font-bold uppercase text-neutral-400">Online Device Match</div>
-                                    <div id="onlineLookupStatus" class="text-[10px] text-neutral-500">Compares your device’s model name with a secure third-party database.</div>
-                                </div>
-                                <button type="button" onclick="lookupDeviceOnline()" id="onlineLookupButton" class="shrink-0 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20">Look Up</button>
-                            </div>
-                        </div>
-
                         <!-- Custom Screen Dimensions Form (Device Tab) -->
                         <div id="customInputsBlock-device" class="hidden border-t border-neutral-800/50 pt-3 space-y-2">
                             <h4 class="text-xs font-bold uppercase text-emerald-400">Custom Screen Dimensions</h4>
@@ -431,25 +421,26 @@ Y +0°</span>
                     </div>
                 </div>
 
-                <div id="customOnboardBlock" class="hidden bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
-                    <label class="block text-xs font-bold uppercase text-neutral-400">Enter Screen Diagonal Size</label>
-                    <div class="flex items-center gap-2">
-                        <input type="number" id="customOnboardInput" step="0.01" value="6.55" min="2" max="30" class="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-2 text-sm outline-none text-emerald-400 font-bold font-mono">
-                        <span class="text-sm font-semibold text-neutral-400">inches</span>
-                    </div>
-                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="confirmOnboarding(true)" class="bg-neutral-800 hover:bg-neutral-700 active:scale-[0.99] text-white font-bold text-sm py-3 rounded-xl transition-all border border-neutral-700">
-                    Calibrate
+                    Manual Calibration
                 </button>
                 <button onclick="confirmOnboarding()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm py-3 rounded-xl transition-all shadow-lg shadow-emerald-900/20">
                     Done
                 </button>
+                    </div>
+                </div>
+
+                <div id="onboardBubbleLevelToggleRow" class="hidden items-center justify-between border-t border-neutral-800/50 pt-3">
+                    <span class="text-xs font-bold uppercase text-neutral-400">Bubble Level</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="onboardToggleBubbleLevel" onchange="toggleBubbleLevel(this.checked)" class="sr-only peer">
+                        <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
             </div>
-        </div>
-    </div>
 
     <!-- Notification Toast -->
     <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-xl opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-2xl flex items-center space-x-2 text-xs font-semibold">
@@ -652,6 +643,7 @@ Y +0°</span>
             document.getElementById('inchFormatSelect').value = inchFormat;
             document.getElementById('rulerUnitsSelect').value = rulerUnitOrder;
             detectDeviceProfile().finally(() => {
+                updateOnboardingBubbleLevelControl();
                 checkFirstTimeOnboarding();
                 resizeCanvas();
                 updateDisplayValues();
@@ -743,7 +735,7 @@ Y +0°</span>
                 'Is this your device and screen size? It determines the size of the ruler on screen. If it’s not, just go to the Calibrate tab to get the ruler accurate.';
 
             document.getElementById('bestGuessExplanation').innerHTML =
-                `We use your browser's model hint where available, rather than assuming an Android phone from its resolution. Detected screen resolution: <span class="text-emerald-400 font-mono font-bold">${realW} &times; ${realH}</span> (Device Pixel Ratio <span class="text-emerald-400 font-mono font-bold">${dpr}</span>).`;
+                `The webpage needs to know the size of your device to scale the ruler, if your phone model is in my database you can find it with "select your device", if that fails use "online device match" or calibrate the ruler yourself. Detected screen resolution: <span class="text-emerald-400 font-mono font-bold">${realW} &times; ${realH}</span> (Device Pixel Ratio <span class="text-emerald-400 font-mono font-bold">${dpr}</span>).`;
             if (detectedDeviceModel) {
                 document.getElementById('bestGuessExplanation').innerHTML +=
                     ` Browser model hint: <span class="text-emerald-400 font-mono font-bold">${escapeHtml(detectedDeviceModel)}</span>.`;
@@ -890,7 +882,6 @@ Y +0°</span>
             const deviceControls = document.getElementById('deviceControlsToMerge');
             const calibrationTab = document.getElementById('tabContent-calibrate');
             const profileSelector = deviceControls.firstElementChild;
-            const onlineLookup = document.getElementById('onlineLookupButton')?.closest('.border-t');
             const customDimensions = document.getElementById('customInputsBlock-device');
             const diagonalControl = document.getElementById('diagonalControl');
             const ppiControl = document.getElementById('ppiControl');
@@ -905,13 +896,9 @@ Y +0°</span>
             ppiControl.classList.remove('border-t', 'pt-3');
             scaleControls.append(diagonalControl, ppiControl);
 
-            // The profile, optional online match, and editable scale readouts replace
-            // the retired Device tab controls.
-            if (onlineLookup) {
-                calibrationTab.prepend(profileSelector, onlineLookup, scaleControls);
-            } else {
-                calibrationTab.prepend(profileSelector, scaleControls);
-            }
+            // The profile selector and editable scale readouts replace the retired
+            // Device tab controls. Online matching is intentionally onboarding-only.
+            calibrationTab.prepend(profileSelector, scaleControls);
             deviceControls.remove();
         }
 
@@ -1076,12 +1063,6 @@ Y +0°</span>
 
         function handleOnboardSelect(val) {
             onboardingOnlineMatchApplied = false;
-            const block = document.getElementById('customOnboardBlock');
-            if (val === "CUSTOM_DEVICE" || val === "Custom Override Selection") {
-                block.classList.remove('hidden');
-            } else {
-                block.classList.add('hidden');
-            }
         }
 
         // Custom Sizing Dimension Inputs Logic
@@ -1155,12 +1136,8 @@ Y +0°</span>
             const preserveOnlineMatch = onboardingOnlineMatchApplied;
             if (!preserveOnlineMatch) {
                 if (choice === "CUSTOM_DEVICE" || choice === "Custom Override Selection") {
-                    const customVal = parseFloat(document.getElementById('customOnboardInput').value);
-                    if (!isNaN(customVal) && customVal > 2 && customVal < 40) {
-                        diagonal = customVal;
-                        customDiagonal = customVal;
-                        activePresetName = "Custom User Device";
-                    }
+                    diagonal = customDiagonal;
+                    activePresetName = "Custom User Device";
                 } else {
                     const found = PRESETS.find(p => p.name === choice);
                     if (found) {
@@ -1171,9 +1148,7 @@ Y +0°</span>
                         activePresetName = found.name;
                         scaleReferenceDiagonal = found.diagonal;
                     } else {
-                        const customVal = parseFloat(document.getElementById('customOnboardInput').value);
-                        diagonal = (!isNaN(customVal)) ? customVal : 6.55;
-                        customDiagonal = diagonal;
+                        diagonal = customDiagonal;
                         activePresetName = "Custom Device";
                     }
                 }
@@ -1343,7 +1318,7 @@ Y +0°</span>
             document.getElementById('bubbleLevelToggleRow').classList.remove('hidden');
             // Keep a centred preview visible on desktops while the level is being designed.
             if (!canUseBubbleLevel) {
-                document.getElementById('toggleBubbleLevel').checked = true;
+                syncBubbleLevelToggles(true);
                 bubbleLevelPanel.classList.remove('hidden');
                 return;
             }
@@ -1359,6 +1334,23 @@ Y +0°</span>
             }, 2000);
         }
 
+        function syncBubbleLevelToggles(enabled) {
+            document.querySelectorAll('#toggleBubbleLevel, #onboardToggleBubbleLevel').forEach(toggle => {
+                toggle.checked = enabled;
+            });
+        }
+
+        function updateOnboardingBubbleLevelControl() {
+            // Safari exposes "iPhone" rather than a usable hardware model, but its
+            // user-agent reliably identifies the permission-gated iPhone experience.
+            if (!/iPhone/i.test(navigator.userAgent)) return;
+            const row = document.getElementById('onboardBubbleLevelToggleRow');
+            if (!row) return;
+            row.classList.remove('hidden');
+            row.classList.add('flex');
+            syncBubbleLevelToggles(document.getElementById('toggleBubbleLevel').checked);
+        }
+
         function autoEnableBubbleLevel(event) {
             const gravity = event.accelerationIncludingGravity;
             const hasGravity = gravity && [gravity.x, gravity.y, gravity.z].every(Number.isFinite);
@@ -1366,8 +1358,7 @@ Y +0°</span>
             if (!hasGravity && !hasOrientation) return;
             window.removeEventListener('deviceorientation', autoEnableBubbleLevel, true);
             window.removeEventListener('devicemotion', autoEnableBubbleLevel, true);
-            const toggle = document.getElementById('toggleBubbleLevel');
-            toggle.checked = true;
+            syncBubbleLevelToggles(true);
             startBubbleLevelListeners();
             bubbleLevelPanel.classList.remove('hidden');
             if (hasGravity) updateBubbleLevelFromMotion(event);
@@ -1382,19 +1373,21 @@ Y +0°</span>
         }
 
         async function toggleBubbleLevel(enabled) {
-            const toggle = document.getElementById('toggleBubbleLevel');
             if (!enabled) {
+                syncBubbleLevelToggles(false);
                 bubbleLevelPanel.classList.add('hidden');
                 return;
             }
 
             // No sensor on this device: retain the centred visual preview.
             if (!canUseBubbleLevel) {
+                syncBubbleLevelToggles(true);
                 bubbleLevelPanel.classList.remove('hidden');
                 return;
             }
 
             try {
+                syncBubbleLevelToggles(true);
                 // iOS requires this permission request to be initiated by the toggle tap.
                 const requests = [];
                 if (typeof window.DeviceOrientationEvent?.requestPermission === 'function') {
@@ -1410,7 +1403,7 @@ Y +0°</span>
                 startBubbleLevelListeners();
                 bubbleLevelPanel.classList.remove('hidden');
             } catch (_) {
-                toggle.checked = false;
+                syncBubbleLevelToggles(false);
                 bubbleLevelPanel.classList.add('hidden');
                 showToast('Motion access is needed for the bubble level.');
             }
