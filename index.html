@@ -156,21 +156,24 @@
         .ad-visible.ad-anchor-bottom #bubbleLevelPanel {
             bottom: var(--ruler-ad-space, 0px) !important;
         }
-        .ad-visible.ad-anchor-bottom #toggleControlsBtn {
+        #toggleControlsBtn {
             position: fixed;
             right: 1rem;
-            bottom: calc(var(--ruler-ad-space, 0px) + 0.75rem + env(safe-area-inset-bottom));
+            bottom: 1rem;
             z-index: 40;
+            touch-action: none;
+            transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
         }
-        @media (max-width: 1023px) {
-            .ad-visible.ad-anchor-bottom #settingsCard {
-                position: fixed;
-                right: 1rem;
-                bottom: calc(var(--ruler-ad-space, 0px) + 5.25rem + env(safe-area-inset-bottom));
-                left: 1rem;
-                width: auto;
-                z-index: 20;
-            }
+        #toggleControlsBtn.is-lifted {
+            transform: translateY(-8px) scale(1.12);
+            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.45);
+        }
+        #toggleControlsBtn.is-dragging {
+            transition: none;
+            cursor: grabbing;
+        }
+        #settingsCard {
+            z-index: 30;
         }
         /* Keep the banner beside the device navigation edge as the device turns. */
         .ad-anchor-right #bottomAdContainer {
@@ -229,7 +232,7 @@ Y +0°</span>
         <div id="levelDrift" class="absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"></div>
     </div>
 
-    <div id="appControlsOverlay" class="absolute inset-0 flex flex-col justify-between pointer-events-none p-4 pb-safe z-10">
+    <div id="appControlsOverlay" class="absolute inset-0 flex flex-col justify-between pointer-events-none p-4 pb-safe z-40">
         
         <!-- Top Status Bar & Measurement Readouts -->
         <div class="w-full flex justify-between items-start gap-4">
@@ -307,7 +310,7 @@ Y +0°</span>
                         <div class="relative">
                             <label class="block text-xs font-bold uppercase text-emerald-400 mb-1.5">Device</label>
                             <div class="relative">
-                                <input type="text" id="deviceSearchInput" placeholder="Search device preset..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-neutral-200 outline-none focus:border-emerald-500 transition-all" onfocus="showDeviceDropdown(true)" oninput="filterDevicePresets(this.value)">
+                                <input type="text" id="deviceSearchInput" placeholder="Search device preset..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-neutral-200 outline-none focus:border-emerald-500 transition-all" onfocus="showDeviceDropdown(true)" oninput="handleDeviceSearchInput(this.value)">
                                 <div id="deviceDropdownList" class="hidden absolute left-0 right-0 bottom-full mb-1 max-h-60 overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50"></div>
                             </div>
                         </div>
@@ -388,6 +391,13 @@ Y +0°</span>
                             <div class="scale-position-labels grid grid-cols-3 text-[9px] font-mono text-neutral-500 px-0.5">
                                 <span>0&quot;</span><span>Device</span><span>2× device</span>
                             </div>
+                        </div>
+
+                        <div id="saveCalibrationTemplateBlock" class="hidden border-t border-neutral-800/50 pt-3 space-y-2">
+                            <button id="saveCalibrationTemplateButton" type="button" onclick="saveDeviceCalibrationTemplate()" class="w-full rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50">
+                                Share calibration
+                            </button>
+                            <p id="saveCalibrationTemplateStatus" class="text-[10px] leading-relaxed text-neutral-500">Share this device model name and custom dimensions to the database so others don’t have to manually calibrate.</p>
                         </div>
                     </div>
 
@@ -559,6 +569,13 @@ Y +0°</span>
         const onlineLookupConfig = window.SCREEN_RULER_CONFIG || {};
         let onlineLookupInFlight = false;
         let onboardingOnlineMatchApplied = false;
+        let calibrationTemplateLookupInFlight = false;
+        let onboardingTemplateMatchApplied = false;
+        let lastSelectedDeviceName = '';
+        let hasSessionDeviceNameEdit = false;
+        let hasSessionRulerScaleEdit = false;
+        let communityTemplateSearchSequence = 0;
+        const communityTemplateSearchCache = new Map();
 
         function getPhysicalScreenResolution() {
             const dpr = window.devicePixelRatio || 1;
@@ -665,6 +682,192 @@ Y +0°</span>
             }
         }
 
+        function getSupabaseHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            if (onlineLookupConfig.supabaseAnonKey) {
+                headers.apikey = onlineLookupConfig.supabaseAnonKey;
+                headers.Authorization = `Bearer ${onlineLookupConfig.supabaseAnonKey}`;
+            }
+            return headers;
+        }
+
+        function getCalibrationTemplateEndpoint() {
+            return onlineLookupConfig.calibrationTemplateEndpoint ||
+                'https://awenpzziosomkocigbri.supabase.co/functions/v1/calibration-template';
+        }
+
+        function isUsefulCalibrationModel(model) {
+            const normalised = normaliseModelText(model);
+            const placeholders = new Set([
+                'ANDROID', 'IPHONE', 'MOBILE', 'PHONE', 'K', 'CHOOSEADEVICE',
+                'CUSTOMDEVICE', 'CUSTOMUSERDEVICE', 'CUSTOMOVERRIDDENSIZE',
+                'CUSTOMOVERRIDESELECTION', 'MANUALLYTUNEDMESH'
+            ]);
+            return normalised.length >= 3 && !placeholders.has(normalised) && !normalised.startsWith('COMMUNITYTEMPLATE');
+        }
+
+        function getCalibrationModelHint() {
+            const deviceInput = document.getElementById('deviceSearchInput')?.value;
+            return [deviceInput, lastSelectedDeviceName, detectedDeviceModel, activePresetName]
+                .map(value => String(value || '').trim())
+                .find(isUsefulCalibrationModel) || '';
+        }
+
+        function getCalibrationTemplateAliases() {
+            const deviceTitle = document.getElementById('deviceSearchInput')?.value;
+            return [...new Set([lastSelectedDeviceName, deviceTitle, detectedDeviceModel]
+                .map(value => String(value || '').trim())
+                .filter(isUsefulCalibrationModel))];
+        }
+
+        function getMatchingStandardPreset() {
+            return PRESETS.find(preset => preset.name.toLowerCase() === activePresetName.toLowerCase()) || null;
+        }
+
+        function calibrationDiffersFromStandardPreset() {
+            const preset = getMatchingStandardPreset();
+            // A selected built-in preset is already shareable local catalogue data.
+            // The manual adjustment paths change activePresetName to a custom value,
+            // which is when a community calibration can add something new.
+            return !preset && (hasSessionDeviceNameEdit || hasSessionRulerScaleEdit);
+        }
+
+        function calibrationTemplateSignature() {
+            return [
+                getCalibrationTemplateAliases().join('|').toUpperCase(), Math.round(customWidth), Math.round(customHeight),
+                diagonal.toFixed(2), ppi.toFixed(2)
+            ].join('|');
+        }
+
+        function updateCalibrationTemplateSaveControl() {
+            const block = document.getElementById('saveCalibrationTemplateBlock');
+            const button = document.getElementById('saveCalibrationTemplateButton');
+            const status = document.getElementById('saveCalibrationTemplateStatus');
+            if (!block || !button || !status) return;
+
+            if (!calibrationDiffersFromStandardPreset()) {
+                block.classList.add('hidden');
+                block.dataset.savedSignature = '';
+                return;
+            }
+
+            const signature = calibrationTemplateSignature();
+            block.classList.remove('hidden');
+            if (block.dataset.savedSignature === signature) {
+                button.disabled = true;
+                button.textContent = 'Calibration saved';
+                status.textContent = 'This adjusted device calibration has been saved.';
+            } else {
+                button.disabled = false;
+                button.textContent = 'Share calibration';
+                status.textContent = isUsefulCalibrationModel(getCalibrationModelHint())
+                    ? 'Share this device model name and custom dimensions to the database so others don’t have to manually calibrate.'
+                    : 'You will be asked for the device model before sharing this calibration.';
+            }
+        }
+
+        async function lookupCalibrationTemplate() {
+            const endpoint = getCalibrationTemplateEndpoint();
+            if (!endpoint || !isUsefulCalibrationModel(detectedDeviceModel) || calibrationTemplateLookupInFlight) return null;
+
+            calibrationTemplateLookupInFlight = true;
+            try {
+                const signature = getPhysicalScreenResolution();
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: getSupabaseHeaders(),
+                    body: JSON.stringify({
+                        action: 'lookup', model: detectedDeviceModel,
+                        width: signature.width, height: signature.height
+                    })
+                });
+                const result = await response.json();
+                return response.ok && result.template ? result.template : null;
+            } catch (_) {
+                // A template lookup is an optional local-catalogue fallback. The
+                // onboarding flow continues normally if the service is unavailable.
+                return null;
+            } finally {
+                calibrationTemplateLookupInFlight = false;
+            }
+        }
+
+        function applyCalibrationTemplate(template) {
+            const signature = getPhysicalScreenResolution();
+            diagonal = Number(template.diagonal);
+            customDiagonal = diagonal;
+            customWidth = Number(template.width);
+            customHeight = Number(template.height);
+            scaleReferenceDiagonal = diagonal;
+            // Derive this browser's CSS-pixel PPI from the shared physical display
+            // data instead of reusing another browser's possibly zoomed PPI value.
+            ppi = Math.hypot(customWidth, customHeight) / diagonal / Math.max(1, signature.dpr || 1);
+            lastSelectedDeviceName = template.model_hint;
+            activePresetName = `Community template: ${template.model_hint} (${diagonal.toFixed(2)}")`;
+            document.getElementById('onboardSearchInput').value = activePresetName;
+            onboardingTemplateMatchApplied = true;
+        }
+
+        function applyCommunityTemplateFromSearch(template) {
+            const signature = getPhysicalScreenResolution();
+            diagonal = Number(template.diagonal);
+            customDiagonal = diagonal;
+            customWidth = Number(template.width);
+            customHeight = Number(template.height);
+            scaleReferenceDiagonal = diagonal;
+            ppi = Math.hypot(customWidth, customHeight) / diagonal / Math.max(1, signature.dpr || 1);
+            lastSelectedDeviceName = template.model_hint;
+            activePresetName = `Community template: ${template.model_hint} (${diagonal.toFixed(2)}")`;
+            localStorage.setItem('calibrated_ruler_ppi', ppi);
+            localStorage.setItem('calibrated_ruler_diagonal', diagonal);
+            localStorage.setItem('calibrated_ruler_presetName', activePresetName);
+            applySavedMetrics();
+            showToast('Community calibration applied.');
+        }
+
+        async function saveDeviceCalibrationTemplate() {
+            const endpoint = getCalibrationTemplateEndpoint();
+            if (!endpoint) {
+                showToast('Calibration saving is not configured yet.');
+                return;
+            }
+
+            await detectDeviceProfile();
+            let model = getCalibrationModelHint();
+            if (!isUsefulCalibrationModel(model)) {
+                const deviceInput = document.getElementById('deviceSearchInput');
+                deviceInput.focus();
+                showToast('Enter the device name in the Device field before sharing.');
+                return;
+            }
+
+            const button = document.getElementById('saveCalibrationTemplateButton');
+            const status = document.getElementById('saveCalibrationTemplateStatus');
+            button.disabled = true;
+            status.textContent = 'Saving calibration…';
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: getSupabaseHeaders(),
+                    body: JSON.stringify({
+                        action: 'save', model,
+                        aliases: getCalibrationTemplateAliases(),
+                        width: Math.round(customWidth), height: Math.round(customHeight),
+                        diagonal: Number(diagonal.toFixed(2)), ppi: Number(ppi.toFixed(2))
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Could not save this calibration.');
+                lastSelectedDeviceName = model;
+                document.getElementById('saveCalibrationTemplateBlock').dataset.savedSignature = calibrationTemplateSignature();
+                updateCalibrationTemplateSaveControl();
+                showToast('Device calibration saved. Thank you!');
+            } catch (error) {
+                button.disabled = false;
+                status.textContent = error.message || 'Could not save this calibration.';
+            }
+        }
+
         let ppi = 133.93; 
         let diagonal = 6.55;
         let scaleReferenceDiagonal = 6.55;
@@ -703,9 +906,21 @@ Y +0°</span>
         const ADS_DISABLED_KEY = 'screen_ruler_ads_disabled';
         const SETTINGS_HIDE_HOLD_MS = 5000;
         const SETTINGS_UNLOCK_HOLD_MS = 10000;
+        const SETTINGS_BUTTON_POSITION_KEY = 'screen_ruler_settings_button_position';
+        const SETTINGS_BUTTON_SIZE = 56;
+        const SETTINGS_BUTTON_MARGIN = 16;
+        const SETTINGS_BUTTON_GAP = 12;
+        const SETTINGS_BUTTON_LIFT_MS = 450;
+        const SETTINGS_BUTTON_DRAG_THRESHOLD = 14;
         let settingsHideTimer = null;
         let settingsUnlockTimer = null;
+        let settingsLiftTimer = null;
         let settingsHoldHandled = false;
+        let settingsButtonPointerId = null;
+        let settingsButtonPressPoint = null;
+        let settingsButtonLifted = false;
+        let settingsButtonDragging = false;
+        let pointerStartedInSettingsCard = false;
 
         const canvas = document.getElementById('rulerCanvas');
         const ctx = canvas.getContext('2d');
@@ -722,6 +937,7 @@ Y +0°</span>
         const levelReadout = document.getElementById('levelReadout');
         const levelNeedle = document.getElementById('levelNeedle');
         const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+        const appControlsOverlay = document.getElementById('appControlsOverlay');
         const levelArcs = {
             left: document.getElementById('levelArcLeft'), right: document.getElementById('levelArcRight'),
             top: document.getElementById('levelArcTop'), bottom: document.getElementById('levelArcBottom')
@@ -744,6 +960,7 @@ Y +0°</span>
         window.addEventListener('orientationchange', updateBottomAdAnchor);
         window.addEventListener('resize', updateBottomAdAnchor);
         window.addEventListener('resize', initializeBottomAd);
+        window.addEventListener('resize', positionSettingsUI);
         window.addEventListener('online', initializeBottomAd);
 
         mergeDeviceControlsIntoCalibrate();
@@ -753,11 +970,12 @@ Y +0°</span>
             initializeBottomAd();
             initSearchDropdowns();
             initBubbleLevel();
+            window.requestAnimationFrame(positionSettingsUI);
             document.getElementById('inchFormatSelect').value = inchFormat;
             document.getElementById('rulerUnitsSelect').value = rulerUnitOrder;
-            detectDeviceProfile().finally(() => {
+            detectDeviceProfile().finally(async () => {
                 updateOnboardingBubbleLevelControl();
-                checkFirstTimeOnboarding();
+                await checkFirstTimeOnboarding();
                 resizeCanvas();
                 updateDisplayValues();
                 drawAll();
@@ -769,8 +987,14 @@ Y +0°</span>
                 drawAll();
             });
 
+            document.addEventListener('pointerdown', (e) => {
+                pointerStartedInSettingsCard = Boolean(settingsCard?.contains(e.target));
+            }, true);
+
             // Universal Click Handler (Handles dropdown dismissals and Tap-Away controls closing)
             document.addEventListener('click', (e) => {
+                const interactionStartedInSettingsCard = pointerStartedInSettingsCard;
+                pointerStartedInSettingsCard = false;
                 if (ignoreNextClick) {
                     ignoreNextClick = false;
                     return;
@@ -794,7 +1018,7 @@ Y +0°</span>
                 const toggleControlsBtn = document.getElementById('toggleControlsBtn');
                 const onboardingModal = document.getElementById('onboardingModal');
 
-                if (!areControlsHidden && 
+                if (!areControlsHidden && !interactionStartedInSettingsCard &&
                     settingsCard && !settingsCard.contains(e.target) && 
                     !e.target.closest('#onboardingModal') &&
                     !listDevice.contains(e.target) &&
@@ -826,7 +1050,7 @@ Y +0°</span>
             document.addEventListener('dblclick', handleDblTaps);
         });
 
-        function checkFirstTimeOnboarding() {
+        async function checkFirstTimeOnboarding() {
             const savedPpi = localStorage.getItem('calibrated_ruler_ppi');
             const savedDiag = localStorage.getItem('calibrated_ruler_diagonal');
             const savedPresetName = localStorage.getItem('calibrated_ruler_presetName');
@@ -869,6 +1093,7 @@ Y +0°</span>
                 const guess = makeBestResolutionGuess();
                 if (guess) {
                     activePresetName = guess.name;
+                    lastSelectedDeviceName = guess.name;
                     diagonal = guess.diagonal;
                     scaleReferenceDiagonal = guess.diagonal;
                     customWidth = guess.wMatch;
@@ -877,12 +1102,17 @@ Y +0°</span>
                     document.getElementById('onboardSearchInput').value = guess.name;
                     handleOnboardSelect(guess.name);
                 } else {
-                    activePresetName = 'Choose a device';
-                    customWidth = realW;
-                    customHeight = realH;
-                    customDiagonal = diagonal;
-                    document.getElementById('onboardSearchInput').value = '';
-                    handleOnboardSelect('CUSTOM_DEVICE');
+                    const template = await lookupCalibrationTemplate();
+                    if (template) {
+                        applyCalibrationTemplate(template);
+                    } else {
+                        activePresetName = 'Choose a device';
+                        customWidth = realW;
+                        customHeight = realH;
+                        customDiagonal = diagonal;
+                        document.getElementById('onboardSearchInput').value = '';
+                        handleOnboardSelect('CUSTOM_DEVICE');
+                    }
                 }
                 updateCustomInputsUI();
 
@@ -1134,6 +1364,61 @@ Y +0°</span>
                 list.classList.add('hidden');
             });
             list.appendChild(customDiv);
+            loadCommunityTemplateSearchResults(query, list, customDiv);
+        }
+
+        function appendCommunityTemplateSearchResults(list, customDiv, templates) {
+            templates.forEach(template => {
+                const div = document.createElement('div');
+                div.className = 'px-3 py-2.5 hover:bg-neutral-800 cursor-pointer text-sm border-b border-neutral-800/40 text-neutral-200 transition-colors';
+                div.append(document.createTextNode(`${template.model_hint} (${Number(template.diagonal).toFixed(2)}\") `));
+                const tag = document.createElement('span');
+                tag.className = 'text-emerald-400 font-semibold';
+                tag.textContent = '(community template)';
+                div.appendChild(tag);
+                div.addEventListener('click', () => {
+                    applyCommunityTemplateFromSearch(template);
+                    list.classList.add('hidden');
+                });
+                list.insertBefore(div, customDiv);
+            });
+        }
+
+        async function loadCommunityTemplateSearchResults(query, list, customDiv) {
+            const normalizedQuery = normaliseModelText(query);
+            const requestId = ++communityTemplateSearchSequence;
+            if (normalizedQuery.length < 3) return;
+            const cached = communityTemplateSearchCache.get(normalizedQuery);
+            if (cached) {
+                appendCommunityTemplateSearchResults(list, customDiv, cached);
+                return;
+            }
+
+            try {
+                const response = await fetch(getCalibrationTemplateEndpoint(), {
+                    method: 'POST',
+                    headers: getSupabaseHeaders(),
+                    body: JSON.stringify({ action: 'search', query })
+                });
+                const result = await response.json();
+                const templates = response.ok && Array.isArray(result.templates) ? result.templates : [];
+                communityTemplateSearchCache.set(normalizedQuery, templates);
+                if (requestId === communityTemplateSearchSequence && list.contains(customDiv)) {
+                    appendCommunityTemplateSearchResults(list, customDiv, templates);
+                }
+            } catch (_) {
+                // Local presets remain fully usable if the optional community search
+                // is unavailable or still loading.
+            }
+        }
+
+        function handleDeviceSearchInput(value) {
+            const typedAlias = String(value || '').trim();
+            if (isUsefulCalibrationModel(typedAlias)) {
+                hasSessionDeviceNameEdit = true;
+                updateCalibrationTemplateSaveControl();
+            }
+            filterDevicePresets(value);
         }
 
         function showOnboardDropdown(visible) {
@@ -1176,12 +1461,14 @@ Y +0°</span>
 
         function handleOnboardSelect(val) {
             onboardingOnlineMatchApplied = false;
+            onboardingTemplateMatchApplied = false;
         }
 
         // Custom Sizing Dimension Inputs Logic
         function updateCustomMetric(metric, value) {
             const parsed = parseFloat(value);
             if (isNaN(parsed) || parsed <= 0) return;
+            hasSessionRulerScaleEdit = true;
 
             if (metric === 'width') {
                 customWidth = parsed;
@@ -1215,6 +1502,7 @@ Y +0°</span>
             localStorage.setItem('calibrated_ruler_ppi', ppi);
             localStorage.setItem('calibrated_ruler_diagonal', diagonal);
             localStorage.setItem('calibrated_ruler_presetName', "Custom Overridden Size");
+            updateCalibrationTemplateSaveControl();
             drawAll();
         }
 
@@ -1242,11 +1530,12 @@ Y +0°</span>
                 if (customBlockCal) customBlockCal.classList.remove('hidden');
                 updateCustomInputsUI();
             }
+            updateCalibrationTemplateSaveControl();
         }
 
         function confirmOnboarding(openCalibrateTab = false) {
             const choice = document.getElementById('onboardSearchInput').value;
-            const preserveOnlineMatch = onboardingOnlineMatchApplied;
+            const preserveOnlineMatch = onboardingOnlineMatchApplied || onboardingTemplateMatchApplied;
             if (!preserveOnlineMatch) {
                 if (choice === "CUSTOM_DEVICE" || choice === "Custom Override Selection") {
                     diagonal = customDiagonal;
@@ -1259,6 +1548,7 @@ Y +0°</span>
                         customWidth = found.wMatch;
                         customHeight = found.hMatch;
                         activePresetName = found.name;
+                        lastSelectedDeviceName = found.name;
                         scaleReferenceDiagonal = found.diagonal;
                     } else {
                         diagonal = customDiagonal;
@@ -1274,6 +1564,7 @@ Y +0°</span>
                 ppi = cssDiag / diagonal;
             }
             onboardingOnlineMatchApplied = false;
+            onboardingTemplateMatchApplied = false;
 
             localStorage.setItem('calibrated_ruler_ppi', ppi);
             localStorage.setItem('calibrated_ruler_diagonal', diagonal);
@@ -1310,6 +1601,7 @@ Y +0°</span>
 
         function applyPreset(name) {
             if (name === "CUSTOM_DEVICE" || name === "Custom Override Selection") {
+                hasSessionDeviceNameEdit = true;
                 checkPresetMatch("CUSTOM_DEVICE");
                 updateDiagonalFromSlider(diagonal);
                 return;
@@ -1321,6 +1613,7 @@ Y +0°</span>
                 customWidth = found.wMatch;
                 customHeight = found.hMatch;
                 activePresetName = found.name;
+                lastSelectedDeviceName = found.name;
                 scaleReferenceDiagonal = found.diagonal;
                 
                 const sw = window.screen.width || window.innerWidth;
@@ -1336,11 +1629,11 @@ Y +0°</span>
         }
 
         function updateDiagonalFromSlider(val) {
+            hasSessionRulerScaleEdit = true;
             diagonal = parseFloat(val);
             customDiagonal = diagonal;
             document.getElementById('diagonalDisplay').value = diagonal.toFixed(2);
             activePresetName = "Custom Overridden Size";
-            document.getElementById('deviceSearchInput').value = activePresetName;
             
             const sw = window.screen.width || window.innerWidth;
             const sh = window.screen.height || window.innerHeight;
@@ -1362,10 +1655,10 @@ Y +0°</span>
         }
 
         function updateFromMicroSlider(val) {
+            hasSessionRulerScaleEdit = true;
             ppi = parseFloat(val);
             document.getElementById('microScaleDisplay').value = Math.round(ppi);
             activePresetName = "Manually Tuned Mesh";
-            document.getElementById('deviceSearchInput').value = activePresetName;
             
             const sw = window.screen.width || window.innerWidth;
             const sh = window.screen.height || window.innerHeight;
@@ -1853,6 +2146,7 @@ Y +0°</span>
                 syncRulerAdSpace();
             }
 
+            if (!areControlsHidden) window.requestAnimationFrame(positionSettingsCard);
             drawAll();
         }
 
@@ -1861,6 +2155,11 @@ Y +0°</span>
             const card = document.getElementById('settingsCard');
             const readoutPanel = document.getElementById('readoutPanel');
             const greeting = document.getElementById('greetingContainer');
+
+            // While hidden, keep invisible controls below the caliper handles so
+            // the full ruler is immediately draggable again.
+            appControlsOverlay.classList.toggle('z-40', !areControlsHidden);
+            appControlsOverlay.classList.toggle('z-10', areControlsHidden);
 
             if (areControlsHidden) {
                 card.classList.add('translate-y-12', 'scale-95', 'opacity-0', 'pointer-events-none');
@@ -1874,7 +2173,9 @@ Y +0°</span>
                 rulerToggleIcon.style.transform = "none";
                 readoutPanel.classList.remove('opacity-0', 'pointer-events-none');
                 greeting.classList.remove('opacity-0', 'pointer-events-none');
+                window.requestAnimationFrame(positionSettingsCard);
             }
+            if (areControlsHidden) restoreSettingsButtonPosition();
         }
 
         function hideBottomAdForVisit() {
@@ -1887,10 +2188,135 @@ Y +0°</span>
             showToast('Ad hidden for this visit.');
         }
 
-        function startSettingsHold() {
-            settingsHoldHandled = false;
+        function getAdFooterSpace() {
+            const adContainer = document.getElementById('bottomAdContainer');
+            const isBottomAdVisible = document.body.classList.contains('ad-visible') &&
+                document.body.classList.contains('ad-anchor-bottom') &&
+                adContainer && !adContainer.classList.contains('hidden');
+            return isBottomAdVisible ? Math.ceil(adContainer.getBoundingClientRect().height + 8) : 0;
+        }
+
+        function getSettingsButtonBounds() {
+            const footerSpace = getAdFooterSpace();
+            return {
+                left: SETTINGS_BUTTON_MARGIN,
+                top: SETTINGS_BUTTON_MARGIN,
+                right: Math.max(SETTINGS_BUTTON_MARGIN, window.innerWidth - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_MARGIN),
+                bottom: Math.max(SETTINGS_BUTTON_MARGIN, window.innerHeight - footerSpace - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_MARGIN)
+            };
+        }
+
+        function setSettingsButtonPosition(x, y, persist = false) {
+            const bounds = getSettingsButtonBounds();
+            const clampedX = Math.max(bounds.left, Math.min(bounds.right, x));
+            const clampedY = Math.max(bounds.top, Math.min(bounds.bottom, y));
+            toggleControlsBtn.style.left = `${clampedX}px`;
+            toggleControlsBtn.style.top = `${clampedY}px`;
+            toggleControlsBtn.style.right = 'auto';
+            toggleControlsBtn.style.bottom = 'auto';
+
+            if (persist) {
+                const xRange = Math.max(1, bounds.right - bounds.left);
+                const yRange = Math.max(1, bounds.bottom - bounds.top);
+                localStorage.setItem(SETTINGS_BUTTON_POSITION_KEY, JSON.stringify({
+                    x: (clampedX - bounds.left) / xRange,
+                    y: (clampedY - bounds.top) / yRange
+                }));
+            }
+        }
+
+        function restoreSettingsButtonPosition() {
+            const bounds = getSettingsButtonBounds();
+            let savedPosition = null;
+            try {
+                savedPosition = JSON.parse(localStorage.getItem(SETTINGS_BUTTON_POSITION_KEY));
+            } catch (_) {
+                savedPosition = null;
+            }
+            const xRange = Math.max(0, bounds.right - bounds.left);
+            const yRange = Math.max(0, bounds.bottom - bounds.top);
+            const x = savedPosition && Number.isFinite(savedPosition.x)
+                ? bounds.left + Math.max(0, Math.min(1, savedPosition.x)) * xRange
+                : bounds.right;
+            const y = savedPosition && Number.isFinite(savedPosition.y)
+                ? bounds.top + Math.max(0, Math.min(1, savedPosition.y)) * yRange
+                : bounds.bottom;
+            setSettingsButtonPosition(x, y);
+        }
+
+        function positionSettingsCard() {
+            if (areControlsHidden) return;
+
+            const bounds = getSettingsButtonBounds();
+            const usableTop = SETTINGS_BUTTON_MARGIN;
+            const usableBottom = bounds.bottom + SETTINGS_BUTTON_SIZE;
+            const usableHeight = Math.max(160, usableBottom - usableTop);
+            const cardWidth = Math.min(384, Math.max(220, window.innerWidth - SETTINGS_BUTTON_MARGIN * 2));
+            settingsCard.style.position = 'fixed';
+            settingsCard.style.width = `${cardWidth}px`;
+            settingsCard.style.maxHeight = `${Math.max(120, usableHeight - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_GAP)}px`;
+            settingsCard.style.margin = '0';
+            settingsCard.style.visibility = 'hidden';
+            settingsCard.style.left = '0px';
+            settingsCard.style.top = '0px';
+
+            const cardHeight = settingsCard.offsetHeight;
+            let buttonRect = toggleControlsBtn.getBoundingClientRect();
+            let cardTop;
+            if (buttonRect.top - SETTINGS_BUTTON_GAP - cardHeight >= usableTop) {
+                cardTop = buttonRect.top - SETTINGS_BUTTON_GAP - cardHeight;
+            } else if (buttonRect.bottom + SETTINGS_BUTTON_GAP + cardHeight <= usableBottom) {
+                cardTop = buttonRect.bottom + SETTINGS_BUTTON_GAP;
+            } else {
+                const pushedDownY = usableTop + cardHeight + SETTINGS_BUTTON_GAP;
+                if (pushedDownY <= bounds.bottom) {
+                    setSettingsButtonPosition(buttonRect.left, pushedDownY);
+                    buttonRect = toggleControlsBtn.getBoundingClientRect();
+                    cardTop = usableTop;
+                } else {
+                    const pushedUpY = Math.max(usableTop, usableBottom - cardHeight - SETTINGS_BUTTON_GAP - SETTINGS_BUTTON_SIZE);
+                    setSettingsButtonPosition(buttonRect.left, pushedUpY);
+                    buttonRect = toggleControlsBtn.getBoundingClientRect();
+                    cardTop = buttonRect.bottom + SETTINGS_BUTTON_GAP;
+                }
+            }
+
+            const cardLeft = Math.max(SETTINGS_BUTTON_MARGIN, Math.min(
+                window.innerWidth - cardWidth - SETTINGS_BUTTON_MARGIN,
+                buttonRect.left + SETTINGS_BUTTON_SIZE / 2 - cardWidth / 2
+            ));
+            settingsCard.style.left = `${cardLeft}px`;
+            settingsCard.style.top = `${cardTop}px`;
+            settingsCard.style.visibility = 'visible';
+        }
+
+        function positionSettingsUI() {
+            restoreSettingsButtonPosition();
+            if (!areControlsHidden) window.requestAnimationFrame(positionSettingsCard);
+        }
+
+        function clearSettingsHoldTimers() {
             window.clearTimeout(settingsHideTimer);
             window.clearTimeout(settingsUnlockTimer);
+            window.clearTimeout(settingsLiftTimer);
+            settingsHideTimer = null;
+            settingsUnlockTimer = null;
+            settingsLiftTimer = null;
+        }
+
+        function startSettingsHold(event) {
+            event.preventDefault();
+            settingsHoldHandled = false;
+            settingsButtonPointerId = event.pointerId;
+            settingsButtonPressPoint = { x: event.clientX, y: event.clientY };
+            settingsButtonDragging = false;
+            settingsButtonLifted = false;
+            clearSettingsHoldTimers();
+            toggleControlsBtn.setPointerCapture(event.pointerId);
+            settingsLiftTimer = window.setTimeout(() => {
+                settingsButtonLifted = true;
+                toggleControlsBtn.classList.add('is-lifted');
+            }, SETTINGS_BUTTON_LIFT_MS);
             settingsHideTimer = window.setTimeout(() => {
                 settingsHoldHandled = true;
                 hideBottomAdForVisit();
@@ -1901,11 +2327,37 @@ Y +0°</span>
             }, SETTINGS_UNLOCK_HOLD_MS);
         }
 
-        function stopSettingsHold() {
-            window.clearTimeout(settingsHideTimer);
-            window.clearTimeout(settingsUnlockTimer);
-            settingsHideTimer = null;
-            settingsUnlockTimer = null;
+        function moveSettingsButton(event) {
+            if (event.pointerId !== settingsButtonPointerId || !settingsButtonLifted) return;
+            const distance = Math.hypot(event.clientX - settingsButtonPressPoint.x, event.clientY - settingsButtonPressPoint.y);
+            if (!settingsButtonDragging && distance < SETTINGS_BUTTON_DRAG_THRESHOLD) return;
+            if (!settingsButtonDragging) {
+                settingsButtonDragging = true;
+                settingsHoldHandled = true;
+                clearSettingsHoldTimers();
+                toggleControlsBtn.classList.add('is-dragging');
+            }
+            setSettingsButtonPosition(event.clientX - SETTINGS_BUTTON_SIZE / 2, event.clientY - SETTINGS_BUTTON_SIZE / 2);
+            if (!areControlsHidden) positionSettingsCard();
+            event.preventDefault();
+        }
+
+        function stopSettingsHold(event) {
+            if (settingsButtonPointerId !== null && event.pointerId !== settingsButtonPointerId) return;
+            clearSettingsHoldTimers();
+            if (settingsButtonDragging) {
+                const rect = toggleControlsBtn.getBoundingClientRect();
+                setSettingsButtonPosition(rect.left, rect.top, true);
+                showToast('Settings button repositioned.');
+            }
+            toggleControlsBtn.classList.remove('is-lifted', 'is-dragging');
+            if (settingsButtonPointerId !== null && toggleControlsBtn.hasPointerCapture(settingsButtonPointerId)) {
+                toggleControlsBtn.releasePointerCapture(settingsButtonPointerId);
+            }
+            settingsButtonPointerId = null;
+            settingsButtonPressPoint = null;
+            settingsButtonLifted = false;
+            settingsButtonDragging = false;
         }
 
         function isAdsDisabled() {
@@ -2039,6 +2491,7 @@ Y +0°</span>
         }
 
         toggleControlsBtn.addEventListener('pointerdown', startSettingsHold);
+        toggleControlsBtn.addEventListener('pointermove', moveSettingsButton);
         toggleControlsBtn.addEventListener('pointerup', stopSettingsHold);
         toggleControlsBtn.addEventListener('pointercancel', stopSettingsHold);
         toggleControlsBtn.addEventListener('pointerleave', stopSettingsHold);
@@ -2496,6 +2949,9 @@ Y +0°</span>
             ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
             ctx.translate(w / 2, topCentreY);
             ctx.rotate(Math.PI / 2);
+            // Start a fresh path so a line left by another canvas tool cannot be
+            // stroked as part of the credit-card outline.
+            ctx.beginPath();
             if(ctx.roundRect) ctx.roundRect(-cardW/2, -cardH/2, cardW, cardH, 3.18 * ppm);
             else ctx.rect(-cardW/2, -cardH/2, cardW, cardH);
             ctx.stroke();

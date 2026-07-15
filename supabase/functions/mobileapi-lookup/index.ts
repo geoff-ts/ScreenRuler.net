@@ -83,13 +83,6 @@ function looksLikeModelNumber(value: string) {
     return Boolean(extractModelNumberHint(value)) || /^(?=.*\d)[a-z0-9_-]+$/i.test(value);
 }
 
-function auditCandidate(candidate: Record<string, unknown>) {
-    // Device search responses may include large image payloads. They do not help
-    // diagnose a screen match, so exclude them from the audit trail.
-    const { image_b64, main_image_b64, ...details } = candidate;
-    return details;
-}
-
 async function consumeQuota(bucketKey: string, limit: number, windowSeconds: number) {
     if (!adminClient) return null;
     const { data, error } = await adminClient.rpc('consume_mobileapi_lookup_quota', {
@@ -110,9 +103,17 @@ async function writeAuditEntry(entry: Record<string, unknown>) {
     if (error) console.error('MobileAPI audit write failed', error.message);
 }
 
+function getProviderMatchCount(payload: unknown, fallbackCount: number) {
+    if (payload && typeof payload === 'object' && 'total' in payload) {
+        const total = Number((payload as { total: unknown }).total);
+        if (Number.isInteger(total) && total >= 0) return total;
+    }
+    return fallbackCount;
+}
+
 serve(async (request) => {
     const origin = request.headers.get('Origin');
-    let auditRequest: { model: string; width: number; height: number } | null = null;
+    let auditRequest: { requested_model: string; requested_screen_width: number; requested_screen_height: number } | null = null;
     let providerCallStarted = false;
     let searchParameter: 'model_number' | 'name' = 'model_number';
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders(origin) });
@@ -130,8 +131,11 @@ serve(async (request) => {
         if (!Number.isFinite(width) || !Number.isFinite(height) || width < 100 || height < 100) {
             return json({ error: 'A valid screen resolution is required' }, 400, origin);
         }
-        auditRequest = { model: model.trim(), width, height };
-
+        auditRequest = {
+            requested_model: model.trim(),
+            requested_screen_width: width,
+            requested_screen_height: height
+        };
         // A calendar-month key creates a firm shared ceiling, independent of the
         // number of visitors or IP addresses using the public lookup endpoint.
         const monthKey = new Date().toISOString().slice(0, 7);
@@ -153,17 +157,17 @@ serve(async (request) => {
         });
         if (!apiResponse.ok) {
             await writeAuditEntry({
-                requested_model: model.trim(),
-                requested_screen_width: width,
-                requested_screen_height: height,
+                ...auditRequest!,
                 provider_status: apiResponse.status,
-                match_found: false
+                match_found: false,
+                error_message: `MobileAPI returned HTTP ${apiResponse.status}.`
             });
             return json({ error: 'Device service lookup failed' }, 502, origin);
         }
 
         const payload = await apiResponse.json();
         const candidates = Array.isArray(payload.devices) ? payload.devices : [];
+        const providerMatchCount = getProviderMatchCount(payload, candidates.length);
         const eligibleCandidates = candidates.map((candidate: Record<string, unknown>) => {
             const screen = typeof candidate.screen_resolution === 'string'
                 ? parseScreenResolution(candidate.screen_resolution)
@@ -185,46 +189,29 @@ serve(async (request) => {
 
         if (!device) {
             await writeAuditEntry({
-                requested_model: model.trim(),
-                requested_screen_width: width,
-                requested_screen_height: height,
+                ...auditRequest!,
                 provider_status: apiResponse.status,
                 match_found: false,
-                provider_response: payload,
-                mobileapi_match: {
-                    search_parameter: searchParameter,
-                    candidates: candidates.map(auditCandidate)
-                }
+                provider_match_count: providerMatchCount
             });
             return json({ match: null }, 200, origin);
         }
         const screen = selected?.screen;
         if (!screen) {
             await writeAuditEntry({
-                requested_model: model.trim(),
-                requested_screen_width: width,
-                requested_screen_height: height,
+                ...auditRequest!,
                 provider_status: apiResponse.status,
-                match_found: false
+                match_found: false,
+                provider_match_count: providerMatchCount,
+                error_message: 'MobileAPI returned a candidate without a usable screen resolution.'
             });
             return json({ match: null }, 200, origin);
         }
         await writeAuditEntry({
-            requested_model: model.trim(),
-            requested_screen_width: width,
-            requested_screen_height: height,
+            ...auditRequest!,
             provider_status: apiResponse.status,
             match_found: true,
-            matched_brand: device.manufacturer_name || device.brand_name || 'Unknown',
-            matched_name: device.name,
-            matched_diagonal: screen.diagonal,
-            matched_screen_width: screen.width,
-            matched_screen_height: screen.height,
-            provider_response: payload,
-            mobileapi_match: {
-                search_parameter: searchParameter,
-                candidate: auditCandidate(device)
-            }
+            provider_match_count: providerMatchCount
         });
         return json({
             match: {
@@ -236,18 +223,15 @@ serve(async (request) => {
                 confidence: 1
             }
         }, 200, origin);
-    } catch (error) {
+    } catch (_) {
         // A provider request can still count against MobileAPI's allowance even if a
         // network or response-parsing error prevents us from processing its reply.
         if (providerCallStarted && auditRequest) {
             await writeAuditEntry({
-                requested_model: auditRequest.model,
-                requested_screen_width: auditRequest.width,
-                requested_screen_height: auditRequest.height,
+                ...auditRequest,
+                provider_status: null,
                 match_found: false,
-                mobileapi_match: {
-                    error: error instanceof Error ? error.message : 'Unknown provider lookup error'
-                }
+                error_message: 'MobileAPI request failed or returned an unreadable response.'
             });
             return json({ error: 'Device service lookup failed' }, 502, origin);
         }
