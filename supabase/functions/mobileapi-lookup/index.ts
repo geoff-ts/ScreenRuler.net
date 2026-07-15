@@ -8,6 +8,8 @@ const adminClient = supabaseUrl && serviceRoleKey
     ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
     : null;
 const maxLookupsPerMonth = 25;
+const maxLookupsPerVisitorPerPeriod = 3;
+const rateLimitSalt = Deno.env.get('MOBILEAPI_RATE_LIMIT_SALT') || serviceRoleKey || 'screen-ruler';
 const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '')
     .split(',')
     .map((origin) => origin.trim())
@@ -99,6 +101,20 @@ async function consumeQuota(bucketKey: string, limit: number, windowSeconds: num
     return data === true;
 }
 
+async function getVisitorQuotaBucket(request: Request, periodKey: string) {
+    // Hash the connection address before it reaches the database. This rate
+    // limit protects the shared provider allowance without retaining an IP.
+    const clientAddress = (request.headers.get('x-forwarded-for') || request.headers.get('cf-connecting-ip') || 'unknown')
+        .split(',')[0]
+        .trim();
+    const bytes = new TextEncoder().encode(`mobileapi:${periodKey}:${clientAddress}:${rateLimitSalt}`);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+    return `mobileapi:visitor:${periodKey}:${hash}`;
+}
+
 async function writeAuditEntry(entry: Record<string, unknown>) {
     if (!adminClient) return;
     const { error } = await adminClient.from('mobileapi_lookup_audit').insert(entry);
@@ -168,13 +184,29 @@ serve(async (request) => {
             requested_screen_width: width,
             requested_screen_height: height
         };
-        // A shared, 13th-to-13th period creates a firm ceiling independent of the
-        // number of visitors or IP addresses using the public lookup endpoint.
+        // Limit each visitor before consuming the small shared provider pool.
         const periodKey = getAllowancePeriodKey();
+        const visitorQuotaAvailable = await consumeQuota(
+            await getVisitorQuotaBucket(request, periodKey),
+            maxLookupsPerVisitorPerPeriod,
+            31 * 24 * 60 * 60
+        );
+        if (visitorQuotaAvailable === null) return json({ error: 'Lookup protection is temporarily unavailable' }, 503, origin);
+        if (!visitorQuotaAvailable) {
+            return json({
+                error: 'This device has reached its device-match limit for the current allowance period. Please choose a preset or calibrate manually.',
+                quota_scope: 'visitor'
+            }, 429, origin);
+        }
+
+        // The shared 13th-to-13th cap is a final backstop for the provider plan.
         const monthlyQuotaAvailable = await consumeQuota(`mobileapi:period:${periodKey}`, maxLookupsPerMonth, 31 * 24 * 60 * 60);
         if (monthlyQuotaAvailable === null) return json({ error: 'Lookup protection is temporarily unavailable' }, 503, origin);
         if (!monthlyQuotaAvailable) {
-            return json({ error: 'This month\'s free device-match allowance has been used. Please calibrate manually.' }, 429, origin);
+            return json({
+                error: 'This period\'s free device-match allowance has been used. Please calibrate manually.',
+                quota_scope: 'global'
+            }, 429, origin);
         }
 
         const url = new URL('https://api.mobileapi.dev/devices/search/');

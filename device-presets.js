@@ -2,7 +2,9 @@
 // Comprehensive local phone coverage: curated current presets plus 2,864 de-duplicated
 // smartphone records from the Global Smartphone Database 2025 (Apache-2.0; 4,144
 // devices, scraped 29 July 2025). Storage/RAM variants are excluded. A small set of
-// complete tablet records is also included from OpenSTF's device database (CC-BY-SA 4.0).
+// complete tablet records is also included from OpenSTF's device database
+// (CC-BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/). See
+// THIRD_PARTY_NOTICES.md for attribution and the applicable data licences.
 window.SCREEN_RULER_DEVICE_DATA = {
     presets: [
         ['Motorola Edge 50 Pro (6.7")', 6.7, 1220, 2712], ['Motorola Edge 40 (6.55")', 6.55, 1080, 2400], ['Motorola Edge (2023) (6.6")', 6.6, 1080, 2400], ['Motorola Moto G Power 5G (2024) (6.7")', 6.7, 1080, 2400], ['Motorola Moto G Stylus 5G (2024) (6.7")', 6.7, 1080, 2400], ['Motorola Moto G Play (2024) (6.5")', 6.5, 720, 1600], ['Motorola Razr Foldable (6.9")', 6.9, 1080, 2640],
