@@ -188,7 +188,7 @@ serve(async (request) => {
 
         const diagonal = payload?.diagonal;
         const calibratedPpi = payload?.ppi;
-        if (!validNumber(diagonal, 2, 30) || !validNumber(calibratedPpi, 20, 2000)) {
+        if (!validNumber(diagonal, 2, 200) || !validNumber(calibratedPpi, 20, 2000)) {
             return json({ error: 'A valid calibrated display size is required' }, 400, origin);
         }
         if (hasProfanity(aliases)) {

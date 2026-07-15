@@ -175,6 +175,27 @@
         #settingsCard {
             z-index: 30;
         }
+        /* The settings body is the only scrolling region: fixed tab, sharing
+           and help sections stay reachable while its contents move beneath. */
+        #settingsScrollArea {
+            scrollbar-width: thin;
+            scrollbar-color: #34d399 rgba(16, 185, 129, 0.12);
+            scrollbar-gutter: stable;
+        }
+        #settingsScrollArea::-webkit-scrollbar { width: 12px; }
+        #settingsScrollArea::-webkit-scrollbar-track {
+            background: rgba(16, 185, 129, 0.22);
+            border-radius: 999px;
+            margin: 6px 0;
+        }
+        #settingsScrollArea::-webkit-scrollbar-thumb {
+            background: linear-gradient(#86efac, #10b981);
+            border: 2px solid rgba(10, 10, 10, 0.8);
+            border-radius: 999px;
+        }
+        #settingsScrollArea::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(#d1fae5, #34d399);
+        }
         /* Keep the banner beside the device navigation edge as the device turns. */
         .ad-anchor-right #bottomAdContainer {
             top: 50%;
@@ -297,14 +318,14 @@ Y +0°</span>
         <!-- Settings Cards Drawer -->
         <div class="w-full flex flex-col lg:flex-row items-end lg:items-start justify-end gap-3 pointer-events-none mt-auto">
             
-            <div id="settingsCard" class="pointer-events-auto bg-neutral-900/95 backdrop-blur-lg border border-neutral-800 rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-y-auto shadow-2xl transition-all duration-300 translate-y-0 scale-100 opacity-100 flex flex-col">
-                <div class="grid grid-cols-3 border-b border-neutral-800 text-xs font-semibold text-neutral-400">
+            <div id="settingsCard" class="pointer-events-auto bg-neutral-900/95 backdrop-blur-lg border border-neutral-800 rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-hidden shadow-2xl transition-all duration-300 translate-y-0 scale-100 opacity-100 flex flex-col">
+                <div class="shrink-0 grid grid-cols-3 border-b border-neutral-800 text-xs font-semibold text-neutral-400">
                     <button onclick="setTab('calibrate')" id="tabBtn-calibrate" class="py-3 text-center border-b-2 border-emerald-500 text-white hover:bg-neutral-800/40 rounded-tl-2xl">Calibrate</button>
                     <button onclick="setTab('guides')" id="tabBtn-guides" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40">Tools</button>
                     <button onclick="setTab('theme')" id="tabBtn-theme" class="py-3 text-center border-b-2 border-transparent hover:text-white hover:bg-neutral-800/40 rounded-tr-2xl">Theme</button>
                 </div>
 
-                <div class="p-5 flex-1 flex flex-col gap-4 overflow-y-auto">
+                <div id="settingsScrollArea" class="p-5 flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto">
                     
                     <div id="deviceControlsToMerge" class="space-y-4">
                         <div class="relative">
@@ -393,12 +414,6 @@ Y +0°</span>
                             </div>
                         </div>
 
-                        <div id="saveCalibrationTemplateBlock" class="hidden border-t border-neutral-800/50 pt-3 space-y-2">
-                            <button id="saveCalibrationTemplateButton" type="button" onclick="saveDeviceCalibrationTemplate()" class="w-full rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50">
-                                Share calibration
-                            </button>
-                            <p id="saveCalibrationTemplateStatus" class="text-[10px] leading-relaxed text-neutral-500">Share this device model name and custom dimensions to the database so others don’t have to manually calibrate.</p>
-                        </div>
                     </div>
 
                     <div id="tabContent-guides" class="hidden space-y-4">
@@ -474,8 +489,15 @@ Y +0°</span>
                         </div>
                     </div>
                 </div>
+
+                <div id="saveCalibrationTemplateBlock" class="hidden shrink-0 border-t border-neutral-800/50 bg-neutral-900/95 px-5 py-3 space-y-2">
+                    <button id="saveCalibrationTemplateButton" type="button" onclick="saveDeviceCalibrationTemplate()" class="w-full rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50">
+                        Share calibration
+                    </button>
+                    <p id="saveCalibrationTemplateStatus" class="text-[10px] leading-relaxed text-neutral-500">Share this device model name and custom dimensions to the database so others don’t have to manually calibrate.</p>
+                </div>
                 
-                <div class="p-3 bg-neutral-950 border-t border-neutral-800 text-[10px] text-neutral-500 text-center rounded-b-2xl">
+                <div class="shrink-0 p-3 bg-neutral-950 border-t border-neutral-800 text-[10px] text-neutral-500 text-center rounded-b-2xl">
                     Drag a coloured caliper handle; double-tap empty grid to toggle the UI
                 </div>
             </div>
@@ -518,7 +540,7 @@ Y +0°</span>
                     </div>
                 </div>
 
-                <div class="border-t border-neutral-800/50 pt-3 space-y-2">
+                <div id="onboardOnlineLookupSection" class="hidden border-t border-neutral-800/50 pt-3 space-y-2">
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <div class="text-xs font-bold uppercase text-neutral-400">Online Device Match</div>
@@ -568,6 +590,7 @@ Y +0°</span>
         let detectedDeviceModel = '';
         const onlineLookupConfig = window.SCREEN_RULER_CONFIG || {};
         let onlineLookupInFlight = false;
+        let mobileApiCreditAvailable = null;
         let onboardingOnlineMatchApplied = false;
         let calibrationTemplateLookupInFlight = false;
         let onboardingTemplateMatchApplied = false;
@@ -609,6 +632,38 @@ Y +0°</span>
             status.className = `text-[10px] ${isError ? 'text-rose-400' : 'text-neutral-500'}`;
         }
 
+        function setOnboardOnlineLookupVisible(visible) {
+            const section = document.getElementById('onboardOnlineLookupSection');
+            if (section) section.classList.toggle('hidden', !visible);
+        }
+
+        async function checkMobileApiCreditAvailability() {
+            const endpoint = onlineLookupConfig.lookupEndpoint;
+            if (!endpoint || !navigator.onLine) {
+                mobileApiCreditAvailable = false;
+                setOnboardOnlineLookupVisible(false);
+                return false;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: getSupabaseHeaders(),
+                    body: JSON.stringify({ action: 'availability' })
+                });
+                const result = await response.json();
+                mobileApiCreditAvailable = response.ok && result.available === true;
+                setOnboardOnlineLookupVisible(mobileApiCreditAvailable);
+                return mobileApiCreditAvailable;
+            } catch (_) {
+                // Keep the paid third-party option out of the intro when its
+                // availability cannot be confirmed; presets remain available.
+                mobileApiCreditAvailable = false;
+                setOnboardOnlineLookupVisible(false);
+                return false;
+            }
+        }
+
         async function lookupDeviceOnline(context = 'settings') {
             if (onlineLookupInFlight) return;
             const endpoint = onlineLookupConfig.lookupEndpoint;
@@ -645,7 +700,13 @@ Y +0°</span>
                     body: JSON.stringify({ model, width: signature.width, height: signature.height, dpr: signature.dpr })
                 });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Lookup failed');
+                if (!response.ok) {
+                    if (response.status === 429) {
+                        mobileApiCreditAvailable = false;
+                        setOnboardOnlineLookupVisible(false);
+                    }
+                    throw new Error(result.error || 'Lookup failed');
+                }
                 if (!result.match) {
                     setOnlineLookupStatus('No confident online match found. Choose a device manually.', true, context);
                     return;
@@ -715,7 +776,10 @@ Y +0°</span>
 
         function getCalibrationTemplateAliases() {
             const deviceTitle = document.getElementById('deviceSearchInput')?.value;
-            return [...new Set([lastSelectedDeviceName, deviceTitle, detectedDeviceModel]
+            // Only share the title the user sees/edits and the browser-provided
+            // hint. A nearby preset may have been used merely as a calibration
+            // starting point, so it must not become a misleading public alias.
+            return [...new Set([deviceTitle, detectedDeviceModel]
                 .map(value => String(value || '').trim())
                 .filter(isUsefulCalibrationModel))];
         }
@@ -746,13 +810,17 @@ Y +0°</span>
             if (!block || !button || !status) return;
 
             if (!calibrationDiffersFromStandardPreset()) {
+                block.dataset.available = 'false';
                 block.classList.add('hidden');
                 block.dataset.savedSignature = '';
                 return;
             }
 
             const signature = calibrationTemplateSignature();
-            block.classList.remove('hidden');
+            block.dataset.available = 'true';
+            // Sharing needs the community database, so follow the same detected
+            // connectivity rule as the optional bottom ad.
+            block.classList.toggle('hidden', activeTab !== 'calibrate' || !navigator.onLine);
             if (block.dataset.savedSignature === signature) {
                 button.disabled = true;
                 button.textContent = 'Calibration saved';
@@ -760,9 +828,7 @@ Y +0°</span>
             } else {
                 button.disabled = false;
                 button.textContent = 'Share calibration';
-                status.textContent = isUsefulCalibrationModel(getCalibrationModelHint())
-                    ? 'Share this device model name and custom dimensions to the database so others don’t have to manually calibrate.'
-                    : 'You will be asked for the device model before sharing this calibration.';
+                status.textContent = 'Share this device model name and custom dimensions to the database so others don’t have to manually calibrate.';
             }
         }
 
@@ -808,7 +874,7 @@ Y +0°</span>
             onboardingTemplateMatchApplied = true;
         }
 
-        function applyCommunityTemplateFromSearch(template) {
+        function applyCommunityTemplateFromSearch(template, context = 'settings') {
             const signature = getPhysicalScreenResolution();
             diagonal = Number(template.diagonal);
             customDiagonal = diagonal;
@@ -818,6 +884,15 @@ Y +0°</span>
             ppi = Math.hypot(customWidth, customHeight) / diagonal / Math.max(1, signature.dpr || 1);
             lastSelectedDeviceName = template.model_hint;
             activePresetName = `Community template: ${template.model_hint} (${diagonal.toFixed(2)}")`;
+
+            if (context === 'onboarding') {
+                onboardingOnlineMatchApplied = false;
+                onboardingTemplateMatchApplied = true;
+                document.getElementById('onboardSearchInput').value = activePresetName;
+                showToast('Community calibration selected. Press Done to continue.');
+                return;
+            }
+
             localStorage.setItem('calibrated_ruler_ppi', ppi);
             localStorage.setItem('calibrated_ruler_diagonal', diagonal);
             localStorage.setItem('calibrated_ruler_presetName', activePresetName);
@@ -873,6 +948,7 @@ Y +0°</span>
         let scaleReferenceDiagonal = 6.55;
         let activePresetName = "Motorola Edge 40 / Pro (6.55\")";
         let currentTheme = 'dark';
+        let activeTab = 'calibrate';
         let showCalibration = false;
         let showGrid = 'metric';
         let showCalipers = true;
@@ -961,7 +1037,16 @@ Y +0°</span>
         window.addEventListener('resize', updateBottomAdAnchor);
         window.addEventListener('resize', initializeBottomAd);
         window.addEventListener('resize', positionSettingsUI);
-        window.addEventListener('online', initializeBottomAd);
+        window.addEventListener('online', () => {
+            initializeBottomAd();
+            updateCalibrationTemplateSaveControl();
+            checkMobileApiCreditAvailability();
+        });
+        window.addEventListener('offline', () => {
+            updateCalibrationTemplateSaveControl();
+            mobileApiCreditAvailable = false;
+            setOnboardOnlineLookupVisible(false);
+        });
 
         mergeDeviceControlsIntoCalibrate();
 
@@ -1118,6 +1203,7 @@ Y +0°</span>
 
                 const modal = document.getElementById('onboardingModal');
                 modal.classList.remove('opacity-0', 'pointer-events-none');
+                checkMobileApiCreditAvailability();
             }
         }
 
@@ -1367,7 +1453,7 @@ Y +0°</span>
             loadCommunityTemplateSearchResults(query, list, customDiv);
         }
 
-        function appendCommunityTemplateSearchResults(list, customDiv, templates) {
+        function appendCommunityTemplateSearchResults(list, customDiv, templates, context = 'settings') {
             templates.forEach(template => {
                 const div = document.createElement('div');
                 div.className = 'px-3 py-2.5 hover:bg-neutral-800 cursor-pointer text-sm border-b border-neutral-800/40 text-neutral-200 transition-colors';
@@ -1377,20 +1463,20 @@ Y +0°</span>
                 tag.textContent = '(community template)';
                 div.appendChild(tag);
                 div.addEventListener('click', () => {
-                    applyCommunityTemplateFromSearch(template);
+                    applyCommunityTemplateFromSearch(template, context);
                     list.classList.add('hidden');
                 });
                 list.insertBefore(div, customDiv);
             });
         }
 
-        async function loadCommunityTemplateSearchResults(query, list, customDiv) {
+        async function loadCommunityTemplateSearchResults(query, list, customDiv, context = 'settings') {
             const normalizedQuery = normaliseModelText(query);
             const requestId = ++communityTemplateSearchSequence;
             if (normalizedQuery.length < 3) return;
             const cached = communityTemplateSearchCache.get(normalizedQuery);
             if (cached) {
-                appendCommunityTemplateSearchResults(list, customDiv, cached);
+                appendCommunityTemplateSearchResults(list, customDiv, cached, context);
                 return;
             }
 
@@ -1404,7 +1490,7 @@ Y +0°</span>
                 const templates = response.ok && Array.isArray(result.templates) ? result.templates : [];
                 communityTemplateSearchCache.set(normalizedQuery, templates);
                 if (requestId === communityTemplateSearchSequence && list.contains(customDiv)) {
-                    appendCommunityTemplateSearchResults(list, customDiv, templates);
+                    appendCommunityTemplateSearchResults(list, customDiv, templates, context);
                 }
             } catch (_) {
                 // Local presets remain fully usable if the optional community search
@@ -1457,6 +1543,9 @@ Y +0°</span>
                 list.classList.add('hidden');
             });
             list.appendChild(customDiv);
+            // Built-in presets render immediately; community templates append as
+            // soon as their independent lookup completes.
+            loadCommunityTemplateSearchResults(query, list, customDiv, 'onboarding');
         }
 
         function handleOnboardSelect(val) {
@@ -2085,6 +2174,11 @@ Y +0°</span>
                     btn.classList.add('border-transparent');
                 }
             });
+            const shareBlock = document.getElementById('saveCalibrationTemplateBlock');
+            if (shareBlock?.dataset.available === 'true') {
+                shareBlock.classList.toggle('hidden', tab !== 'calibrate' || !navigator.onLine);
+            }
+            window.requestAnimationFrame(positionSettingsCard);
         }
 
         function setTheme(theme) {
@@ -2094,7 +2188,7 @@ Y +0°</span>
             document.body.className = "h-full overflow-hidden select-none transition-colors duration-300";
 
             const panelBase = "hidden pointer-events-auto backdrop-blur-md border rounded-2xl p-4 shadow-2xl flex flex-col gap-2 min-w-[280px] max-w-sm transition-all duration-300";
-            const cardBase = "pointer-events-auto backdrop-blur-lg border rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-y-auto shadow-2xl flex flex-col transition-all duration-300";
+            const cardBase = "pointer-events-auto backdrop-blur-lg border rounded-2xl w-full lg:w-96 max-h-[50vh] lg:max-h-none overflow-hidden shadow-2xl flex flex-col transition-all duration-300";
 
             let panelTheme = "";
             let cardTheme = "";
@@ -2254,7 +2348,13 @@ Y +0°</span>
             const cardWidth = Math.min(384, Math.max(220, window.innerWidth - SETTINGS_BUTTON_MARGIN * 2));
             settingsCard.style.position = 'fixed';
             settingsCard.style.width = `${cardWidth}px`;
-            settingsCard.style.maxHeight = `${Math.max(120, usableHeight - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_GAP)}px`;
+            // Keep the panel compact enough to make its scroll affordance useful,
+            // while still respecting the available space around the settings cog.
+            const compactHeight = Math.round(window.innerHeight * 0.60);
+            settingsCard.style.maxHeight = `${Math.max(120, Math.min(
+                usableHeight - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_GAP,
+                compactHeight
+            ))}px`;
             settingsCard.style.margin = '0';
             settingsCard.style.visibility = 'hidden';
             settingsCard.style.left = '0px';

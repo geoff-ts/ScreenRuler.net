@@ -14,7 +14,9 @@ const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '')
     .filter(Boolean);
 
 function corsHeaders(origin: string | null) {
-    const permittedOrigin = origin && allowedOrigins.includes(origin)
+    const permittedOrigin = origin === 'null'
+        ? '*'
+        : origin && allowedOrigins.includes(origin)
         ? origin
         : (allowedOrigins[0] || origin || '*');
     return {
@@ -103,12 +105,35 @@ async function writeAuditEntry(entry: Record<string, unknown>) {
     if (error) console.error('MobileAPI audit write failed', error.message);
 }
 
+// MobileAPI's allowance period is deliberately aligned with the 13th rather
+// than the calendar month. Before the 13th, the active period began last month.
+function getAllowancePeriodKey(date = new Date()) {
+    const periodStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 13));
+    if (date.getUTCDate() < 13) periodStart.setUTCMonth(periodStart.getUTCMonth() - 1);
+    return periodStart.toISOString().slice(0, 10);
+}
+
 function getProviderMatchCount(payload: unknown, fallbackCount: number) {
     if (payload && typeof payload === 'object' && 'total' in payload) {
         const total = Number((payload as { total: unknown }).total);
         if (Number.isInteger(total) && total >= 0) return total;
     }
     return fallbackCount;
+}
+
+async function hasMonthlyLookupAllowance() {
+    if (!adminClient) return null;
+    const periodKey = getAllowancePeriodKey();
+    const { data, error } = await adminClient
+        .from('mobileapi_rate_limits')
+        .select('request_count')
+        .eq('bucket_key', `mobileapi:period:${periodKey}`)
+        .maybeSingle();
+    if (error) {
+        console.error('MobileAPI allowance check failed', error.message);
+        return null;
+    }
+    return Number(data?.request_count || 0) < maxLookupsPerMonth;
 }
 
 serve(async (request) => {
@@ -118,13 +143,20 @@ serve(async (request) => {
     let searchParameter: 'model_number' | 'name' = 'model_number';
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders(origin) });
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, origin);
-    if (allowedOrigins.length && origin && !allowedOrigins.includes(origin)) {
+    if (allowedOrigins.length && origin && origin !== 'null' && !allowedOrigins.includes(origin)) {
         return json({ error: 'Origin not allowed' }, 403, origin);
     }
     if (!mobileApiKey) return json({ error: 'MobileAPI is not configured on the server' }, 500, origin);
 
     try {
-        const { model, width, height } = await request.json();
+        const requestPayload = await request.json();
+        if (requestPayload?.action === 'availability') {
+            const available = await hasMonthlyLookupAllowance();
+            if (available === null) return json({ error: 'Lookup availability is temporarily unavailable' }, 503, origin);
+            return json({ available }, 200, origin);
+        }
+
+        const { model, width, height } = requestPayload;
         if (typeof model !== 'string' || model.trim().length < 2 || model.length > 100) {
             return json({ error: 'A valid device model is required' }, 400, origin);
         }
@@ -136,10 +168,10 @@ serve(async (request) => {
             requested_screen_width: width,
             requested_screen_height: height
         };
-        // A calendar-month key creates a firm shared ceiling, independent of the
+        // A shared, 13th-to-13th period creates a firm ceiling independent of the
         // number of visitors or IP addresses using the public lookup endpoint.
-        const monthKey = new Date().toISOString().slice(0, 7);
-        const monthlyQuotaAvailable = await consumeQuota(`mobileapi:month:${monthKey}`, maxLookupsPerMonth, 31 * 24 * 60 * 60);
+        const periodKey = getAllowancePeriodKey();
+        const monthlyQuotaAvailable = await consumeQuota(`mobileapi:period:${periodKey}`, maxLookupsPerMonth, 31 * 24 * 60 * 60);
         if (monthlyQuotaAvailable === null) return json({ error: 'Lookup protection is temporarily unavailable' }, 503, origin);
         if (!monthlyQuotaAvailable) {
             return json({ error: 'This month\'s free device-match allowance has been used. Please calibrate manually.' }, 429, origin);
