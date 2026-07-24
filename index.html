@@ -196,7 +196,23 @@
         #settingsScrollArea::-webkit-scrollbar-thumb:hover {
             background: linear-gradient(#d1fae5, #34d399);
         }
-        /* Keep the banner beside the device navigation edge as the device turns. */
+        /* Keep the banner beside the device's physical bottom edge as it turns.
+           Landscape uses Google's supported 120 x 240 vertical banner size. */
+        .ad-anchor-right #bottomAdContainer,
+        .ad-anchor-left #bottomAdContainer {
+            width: 120px;
+            height: 260px;
+        }
+        .ad-anchor-right #bottomAdContainer > div,
+        .ad-anchor-left #bottomAdContainer > div {
+            width: 120px;
+            height: 260px;
+        }
+        .ad-anchor-right #bottomAdContainer .screen-ruler-ad,
+        .ad-anchor-left #bottomAdContainer .screen-ruler-ad {
+            width: 120px;
+            height: 240px;
+        }
         .ad-anchor-right #bottomAdContainer {
             top: 50%;
             right: max(0.5rem, env(safe-area-inset-right));
@@ -967,6 +983,11 @@ Y +0°</span>
 
         let pointA = { x: 100, y: 150 };
         let pointB = { x: 300, y: 450 };
+        // Caliper positions are retained in the phone's natural portrait axes.
+        // The visible points are projected from these coordinates after every
+        // rotation or viewport resize, so a 90-degree turn does not squash them.
+        let physicalPointA = null;
+        let physicalPointB = null;
         let activePoint = null;
         let activePointerId = null;
         
@@ -2282,21 +2303,35 @@ Y +0°</span>
             showToast('Ad hidden for this visit.');
         }
 
-        function getAdFooterSpace() {
+        function getAdReservedEdges() {
             const adContainer = document.getElementById('bottomAdContainer');
-            const isBottomAdVisible = document.body.classList.contains('ad-visible') &&
-                document.body.classList.contains('ad-anchor-bottom') &&
+            const edges = { top: 0, right: 0, bottom: 0, left: 0 };
+            const isAdVisible = document.body.classList.contains('ad-visible') &&
                 adContainer && !adContainer.classList.contains('hidden');
-            return isBottomAdVisible ? Math.ceil(adContainer.getBoundingClientRect().height + 8) : 0;
+            if (!isAdVisible) return edges;
+
+            const rect = adContainer.getBoundingClientRect();
+            const gap = 8;
+            if (document.body.classList.contains('ad-anchor-top')) edges.top = Math.ceil(rect.height + gap);
+            if (document.body.classList.contains('ad-anchor-right')) edges.right = Math.ceil(rect.width + gap);
+            if (document.body.classList.contains('ad-anchor-bottom')) edges.bottom = Math.ceil(rect.height + gap);
+            if (document.body.classList.contains('ad-anchor-left')) edges.left = Math.ceil(rect.width + gap);
+            return edges;
         }
 
         function getSettingsButtonBounds() {
-            const footerSpace = getAdFooterSpace();
+            const reservedEdges = getAdReservedEdges();
             return {
-                left: SETTINGS_BUTTON_MARGIN,
-                top: SETTINGS_BUTTON_MARGIN,
-                right: Math.max(SETTINGS_BUTTON_MARGIN, window.innerWidth - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_MARGIN),
-                bottom: Math.max(SETTINGS_BUTTON_MARGIN, window.innerHeight - footerSpace - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_MARGIN)
+                left: SETTINGS_BUTTON_MARGIN + reservedEdges.left,
+                top: SETTINGS_BUTTON_MARGIN + reservedEdges.top,
+                right: Math.max(
+                    SETTINGS_BUTTON_MARGIN + reservedEdges.left,
+                    window.innerWidth - reservedEdges.right - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_MARGIN
+                ),
+                bottom: Math.max(
+                    SETTINGS_BUTTON_MARGIN + reservedEdges.top,
+                    window.innerHeight - reservedEdges.bottom - SETTINGS_BUTTON_SIZE - SETTINGS_BUTTON_MARGIN
+                )
             };
         }
 
@@ -2342,10 +2377,14 @@ Y +0°</span>
             if (areControlsHidden) return;
 
             const bounds = getSettingsButtonBounds();
-            const usableTop = SETTINGS_BUTTON_MARGIN;
+            const reservedEdges = getAdReservedEdges();
+            const usableLeft = SETTINGS_BUTTON_MARGIN + reservedEdges.left;
+            const usableTop = SETTINGS_BUTTON_MARGIN + reservedEdges.top;
+            const usableRight = window.innerWidth - SETTINGS_BUTTON_MARGIN - reservedEdges.right;
             const usableBottom = bounds.bottom + SETTINGS_BUTTON_SIZE;
             const usableHeight = Math.max(160, usableBottom - usableTop);
-            const cardWidth = Math.min(384, Math.max(220, window.innerWidth - SETTINGS_BUTTON_MARGIN * 2));
+            const usableWidth = Math.max(160, usableRight - usableLeft);
+            const cardWidth = Math.min(384, usableWidth);
             settingsCard.style.position = 'fixed';
             settingsCard.style.width = `${cardWidth}px`;
             // Keep the panel compact enough to make its scroll affordance useful,
@@ -2381,8 +2420,8 @@ Y +0°</span>
                 }
             }
 
-            const cardLeft = Math.max(SETTINGS_BUTTON_MARGIN, Math.min(
-                window.innerWidth - cardWidth - SETTINGS_BUTTON_MARGIN,
+            const cardLeft = Math.max(usableLeft, Math.min(
+                usableRight - cardWidth,
                 buttonRect.left + SETTINGS_BUTTON_SIZE / 2 - cardWidth / 2
             ));
             settingsCard.style.left = `${cardLeft}px`;
@@ -2555,9 +2594,9 @@ Y +0°</span>
                 Math.min(window.innerWidth, window.innerHeight) < 700;
             const physicalAnchorClasses = {
                 0: 'ad-anchor-bottom',
-                90: 'ad-anchor-left',
+                90: 'ad-anchor-right',
                 180: 'ad-anchor-top',
-                270: 'ad-anchor-right'
+                270: 'ad-anchor-left'
             };
             const anchorClass = isCompactTouchScreen
                 ? (physicalAnchorClasses[normalizedAngle] || 'ad-anchor-bottom')
@@ -2565,7 +2604,10 @@ Y +0°</span>
 
             document.body.classList.remove('ad-anchor-bottom', 'ad-anchor-left', 'ad-anchor-top', 'ad-anchor-right');
             document.body.classList.add(anchorClass);
-            window.requestAnimationFrame(syncRulerAdSpace);
+            window.requestAnimationFrame(() => {
+                syncRulerAdSpace();
+                positionSettingsUI();
+            });
         }
 
         function getRulerViewportSize() {
@@ -2611,33 +2653,71 @@ Y +0°</span>
             restoreBtn.classList.toggle('hidden');
         }
 
-        function clampPointsToWindow() {
-            const { width: w, height: h } = getRulerViewportSize();
-            const margin = 35;
-            
-            pointA.x = Math.max(margin, Math.min(w - margin, pointA.x));
-            pointA.y = Math.max(margin, Math.min(h - margin, pointA.y));
-            
-            pointB.x = Math.max(margin, Math.min(w - margin, pointB.x));
-            pointB.y = Math.max(margin, Math.min(h - margin, pointB.y));
+        function viewportPointToPhysical(point, angle, viewport) {
+            switch (angle) {
+                case 90: return { x: viewport.height - point.y, y: point.x };
+                case 180: return { x: viewport.width - point.x, y: viewport.height - point.y };
+                case 270: return { x: point.y, y: viewport.width - point.x };
+                default: return { x: point.x, y: point.y };
+            }
+        }
+
+        function physicalPointToViewport(point, angle, viewport) {
+            switch (angle) {
+                case 90: return { x: point.y, y: viewport.height - point.x };
+                case 180: return { x: viewport.width - point.x, y: viewport.height - point.y };
+                case 270: return { x: viewport.width - point.y, y: point.x };
+                default: return { x: point.x, y: point.y };
+            }
+        }
+
+        function capturePhysicalCaliperPoint(point, name) {
+            const viewport = getRulerViewportSize();
+            const physicalPoint = viewportPointToPhysical(point, getScreenOrientationAngle(), viewport);
+            if (name === 'A') physicalPointA = physicalPoint;
+            else physicalPointB = physicalPoint;
+        }
+
+        function projectCalipersIntoViewport(width, height) {
+            const viewport = { width, height };
+            const angle = getScreenOrientationAngle();
+            if (!physicalPointA) physicalPointA = viewportPointToPhysical(pointA, angle, viewport);
+            if (!physicalPointB) physicalPointB = viewportPointToPhysical(pointB, angle, viewport);
+            pointA = physicalPointToViewport(physicalPointA, angle, viewport);
+            pointB = physicalPointToViewport(physicalPointB, angle, viewport);
+        }
+
+        function clampPointsToWindow(width, height) {
+            const marginX = Math.min(35, width / 2);
+            const marginY = Math.min(35, height / 2);
+            const clampPoint = point => {
+                point.x = Math.max(marginX, Math.min(width - marginX, point.x));
+                point.y = Math.max(marginY, Math.min(height - marginY, point.y));
+            };
+            clampPoint(pointA);
+            clampPoint(pointB);
         }
 
         function resizeCanvas() {
             const { width, height } = getRulerViewportSize();
+            projectCalipersIntoViewport(width, height);
             const dpr = window.devicePixelRatio || 1;
             canvas.width = width * dpr;
             canvas.height = height * dpr;
             canvas.style.width = width + 'px';
             canvas.style.height = height + 'px';
             ctx.scale(dpr, dpr);
-            
-            clampPointsToWindow();
+
+            clampPointsToWindow(width, height);
+            updateDisplayValues();
         }
 
         function resetCalipers() {
             const { width, height } = getRulerViewportSize();
             pointA = { x: Math.round(width * 0.35), y: Math.round(height * 0.35) };
             pointB = { x: Math.round(width * 0.65), y: Math.round(height * 0.65) };
+            capturePhysicalCaliperPoint(pointA, 'A');
+            capturePhysicalCaliperPoint(pointB, 'B');
             updateDisplayValues();
             drawAll();
         }
@@ -2710,6 +2790,7 @@ Y +0°</span>
             if (activePoint.endsWith('BOTH') || activePoint.endsWith('_Y')) {
                 point.y = Math.max(0, Math.min(getRulerViewportSize().height, e.clientY));
             }
+            capturePhysicalCaliperPoint(point, activePoint.startsWith('A') ? 'A' : 'B');
             caliperDraggedThisInteraction = true;
             e.preventDefault();
             updateDisplayValues();
@@ -2739,6 +2820,7 @@ Y +0°</span>
             if (which.endsWith('BOTH') || which.endsWith('_Y')) {
                 point.y = Math.max(0, Math.min(getRulerViewportSize().height, point.y + offsets[e.key][1] * step));
             }
+            capturePhysicalCaliperPoint(point, which.startsWith('A') ? 'A' : 'B');
             e.preventDefault();
             updateDisplayValues();
             drawAll();
@@ -3014,24 +3096,33 @@ Y +0°</span>
         function drawRulerGrid(w, h, majorC, minorC) {
             if (showGrid === 'none') return;
             const ppm = ppi / 25.4;
+            const angle = getScreenOrientationAngle();
+            const originX = angle === 180 || angle === 270 ? w : 0;
+            const originY = angle === 90 || angle === 180 ? h : 0;
+            const directionX = originX === 0 ? 1 : -1;
+            const directionY = originY === 0 ? 1 : -1;
+            const drawGridLines = (spacing, color, lineWidth) => {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                for (let distance = 0; distance <= w; distance += spacing) {
+                    const x = originX + directionX * distance;
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                }
+                for (let distance = 0; distance <= h; distance += spacing) {
+                    const y = originY + directionY * distance;
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+            };
+
             ctx.save();
-            ctx.lineWidth = 0.5;
-            
+
             if (showGrid === 'metric' || showGrid === 'both') {
-                ctx.strokeStyle = minorC;
-                for (let x = 0; x < w; x += 5 * ppm) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-                for (let y = 0; y < h; y += 5 * ppm) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-                ctx.strokeStyle = majorC; ctx.lineWidth = 1;
-                for (let x = 0; x < w; x += 10 * ppm) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-                for (let y = 0; y < h; y += 10 * ppm) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                drawGridLines(5 * ppm, minorC, 0.5);
+                drawGridLines(10 * ppm, majorC, 1);
             }
             if (showGrid === 'imperial' || showGrid === 'both') {
-                ctx.strokeStyle = minorC; ctx.lineWidth = 0.5;
-                for (let x = 0; x < w; x += ppi / 4) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-                for (let y = 0; y < h; y += ppi / 4) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-                ctx.strokeStyle = majorC; ctx.lineWidth = 1;
-                for (let x = 0; x < w; x += ppi) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-                for (let y = 0; y < h; y += ppi) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                drawGridLines(ppi / 4, minorC, 0.5);
+                drawGridLines(ppi, majorC, 1);
             }
             ctx.restore();
         }
@@ -3063,71 +3154,85 @@ Y +0°</span>
             ctx.save(); ctx.font = '9px monospace'; ctx.fillStyle = labelC; ctx.lineWidth = 1;
 
             const metricOnTopLeft = rulerUnitOrder !== 'imperial-primary';
-            const drawMetricHorizontal = top => {
-                const edge = top ? 0 : h;
-                const direction = top ? 1 : -1;
-                const labelY = top ? 28 : h - 22;
-                for (let mm = 0; mm <= w / ppm; mm++) {
-                    const x = mm * ppm;
-                    const tick = mm % 10 === 0 ? 18 : (mm % 5 === 0 ? 12 : 7);
-                    ctx.strokeStyle = mm % 10 === 0 ? majorC : (mm % 5 === 0 ? minorC : subMinorC);
-                    ctx.beginPath(); ctx.moveTo(x, edge); ctx.lineTo(x, edge + direction * tick); ctx.stroke();
-                    if (mm % 10 === 0 && mm > 0 && x < w - 10) {
-                        ctx.textAlign = 'center'; ctx.fillText(mm / 10, x, labelY);
-                    }
+            const angle = getScreenOrientationAngle();
+            const edgeMaps = {
+                0: {
+                    top: ['top', 1], right: ['right', 1],
+                    bottom: ['bottom', 1], left: ['left', 1]
+                },
+                90: {
+                    top: ['left', -1], right: ['top', 1],
+                    bottom: ['right', -1], left: ['bottom', 1]
+                },
+                180: {
+                    top: ['bottom', -1], right: ['left', -1],
+                    bottom: ['top', -1], left: ['right', -1]
+                },
+                270: {
+                    top: ['right', 1], right: ['bottom', -1],
+                    bottom: ['left', 1], left: ['top', -1]
                 }
             };
-            const drawMetricVertical = left => {
-                const edge = left ? 0 : w;
-                const direction = left ? 1 : -1;
-                const labelX = left ? 22 : w - 22;
-                for (let mm = 0; mm <= h / ppm; mm++) {
-                    const y = mm * ppm;
-                    const tick = mm % 10 === 0 ? 18 : (mm % 5 === 0 ? 12 : 7);
-                    ctx.strokeStyle = mm % 10 === 0 ? majorC : (mm % 5 === 0 ? minorC : subMinorC);
-                    ctx.beginPath(); ctx.moveTo(edge, y); ctx.lineTo(edge + direction * tick, y); ctx.stroke();
-                    if (mm % 10 === 0 && mm > 0 && y < h - 10) {
-                        ctx.textAlign = left ? 'left' : 'right'; ctx.textBaseline = 'middle';
-                        ctx.fillText(mm / 10, labelX, y);
-                    }
-                }
+            const mapPhysicalEdge = edge => {
+                const [viewportEdge, scaleDirection] = (edgeMaps[angle] || edgeMaps[0])[edge];
+                return { edge: viewportEdge, scaleDirection };
             };
-            const drawImperialHorizontal = top => {
-                const edge = top ? 0 : h;
-                const direction = top ? 1 : -1;
-                const labelY = top ? 28 : h - 22;
-                const totalSixteenths = Math.floor(w / (ppi / 16));
-                for (let i = 0; i <= totalSixteenths; i++) {
-                    const x = i * (ppi / 16);
-                    const tick = i % 16 === 0 ? 18 : (i % 8 === 0 ? 12 : (i % 4 === 0 ? 9 : 5));
-                    ctx.strokeStyle = i % 16 === 0 ? majorC : (i % 4 === 0 ? minorC : subMinorC);
-                    ctx.beginPath(); ctx.moveTo(x, edge); ctx.lineTo(x, edge + direction * tick); ctx.stroke();
-                    if (i % 16 === 0 && i > 0 && x < w - 15) {
-                        ctx.textAlign = 'center'; ctx.fillText((i / 16) + '"', x, labelY);
+            const drawScale = (physicalEdge, unit) => {
+                const { edge, scaleDirection } = mapPhysicalEdge(physicalEdge);
+                const horizontal = edge === 'top' || edge === 'bottom';
+                const length = horizontal ? w : h;
+                const edgeCoordinate = edge === 'top' || edge === 'left'
+                    ? 0
+                    : (horizontal ? h : w);
+                const inwardDirection = edge === 'top' || edge === 'left' ? 1 : -1;
+                const labelCoordinate = edge === 'top' || edge === 'left'
+                    ? 22
+                    : edgeCoordinate - 22;
+                const step = unit === 'metric' ? ppm : ppi / 16;
+                const totalSteps = Math.floor(length / step);
+
+                for (let index = 0; index <= totalSteps; index++) {
+                    const distance = index * step;
+                    const position = scaleDirection > 0 ? distance : length - distance;
+                    const isMajor = unit === 'metric' ? index % 10 === 0 : index % 16 === 0;
+                    const isMiddle = unit === 'metric' ? index % 5 === 0 : index % 4 === 0;
+                    const tick = unit === 'metric'
+                        ? (isMajor ? 18 : (isMiddle ? 12 : 7))
+                        : (isMajor ? 18 : (index % 8 === 0 ? 12 : (isMiddle ? 9 : 5)));
+                    ctx.strokeStyle = isMajor ? majorC : (isMiddle ? minorC : subMinorC);
+                    ctx.beginPath();
+                    if (horizontal) {
+                        ctx.moveTo(position, edgeCoordinate);
+                        ctx.lineTo(position, edgeCoordinate + inwardDirection * tick);
+                    } else {
+                        ctx.moveTo(edgeCoordinate, position);
+                        ctx.lineTo(edgeCoordinate + inwardDirection * tick, position);
                     }
-                }
-            };
-            const drawImperialVertical = left => {
-                const edge = left ? 0 : w;
-                const direction = left ? 1 : -1;
-                const labelX = left ? 22 : w - 22;
-                const totalSixteenths = Math.floor(h / (ppi / 16));
-                for (let i = 0; i <= totalSixteenths; i++) {
-                    const y = i * (ppi / 16);
-                    const tick = i % 16 === 0 ? 18 : (i % 8 === 0 ? 12 : (i % 4 === 0 ? 9 : 5));
-                    ctx.strokeStyle = i % 16 === 0 ? majorC : (i % 4 === 0 ? minorC : subMinorC);
-                    ctx.beginPath(); ctx.moveTo(edge, y); ctx.lineTo(edge + direction * tick, y); ctx.stroke();
-                    if (i % 16 === 0 && i > 0 && y < h - 15) {
-                        ctx.textAlign = left ? 'left' : 'right'; ctx.textBaseline = 'middle';
-                        ctx.fillText((i / 16) + '"', labelX, y);
+                    ctx.stroke();
+
+                    if (!isMajor || index === 0 || position < 10 || position > length - 10) continue;
+                    const label = unit === 'metric' ? String(index / 10) : `${index / 16}"`;
+                    ctx.fillStyle = labelC;
+                    if (horizontal) {
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(label, position, labelCoordinate);
+                    } else {
+                        ctx.textAlign = edge === 'left' ? 'left' : 'right';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(label, labelCoordinate, position);
                     }
                 }
             };
 
-            drawMetricHorizontal(metricOnTopLeft);
-            drawMetricVertical(metricOnTopLeft);
-            drawImperialHorizontal(!metricOnTopLeft);
-            drawImperialVertical(!metricOnTopLeft);
+            const metricHorizontalEdge = metricOnTopLeft ? 'top' : 'bottom';
+            const metricVerticalEdge = metricOnTopLeft ? 'left' : 'right';
+            const imperialHorizontalEdge = metricOnTopLeft ? 'bottom' : 'top';
+            const imperialVerticalEdge = metricOnTopLeft ? 'right' : 'left';
+            drawScale(metricHorizontalEdge, 'metric');
+            drawScale(metricVerticalEdge, 'metric');
+            drawScale(imperialHorizontalEdge, 'imperial');
+            drawScale(imperialVerticalEdge, 'imperial');
 
             ctx.restore();
         }
