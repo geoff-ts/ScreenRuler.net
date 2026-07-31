@@ -30,6 +30,25 @@
         }
         .caliper-handle:active { cursor: grabbing; }
         .caliper-handle:focus-visible { outline: 3px solid #ffffff; outline-offset: -8px; }
+        .caliper-handle.offscreen-proxy::before {
+            content: "";
+            position: absolute;
+            inset: 10px;
+            border: 2px solid var(--caliper-proxy-border);
+            border-radius: 9999px;
+            background: var(--caliper-proxy-fill);
+            box-shadow: 0 0 16px var(--caliper-proxy-glow);
+        }
+        #caliperHandleA.offscreen-proxy {
+            --caliper-proxy-border: rgba(16, 185, 129, 0.48);
+            --caliper-proxy-fill: rgba(16, 185, 129, 0.10);
+            --caliper-proxy-glow: rgba(16, 185, 129, 0.16);
+        }
+        #caliperHandleB.offscreen-proxy {
+            --caliper-proxy-border: rgba(245, 158, 11, 0.48);
+            --caliper-proxy-fill: rgba(245, 158, 11, 0.10);
+            --caliper-proxy-glow: rgba(245, 158, 11, 0.16);
+        }
         .caliper-guide {
             position: absolute;
             border: 0;
@@ -2687,17 +2706,6 @@ Y +0°</span>
             pointB = physicalPointToViewport(physicalPointB, angle, viewport);
         }
 
-        function clampPointsToWindow(width, height) {
-            const marginX = Math.min(35, width / 2);
-            const marginY = Math.min(35, height / 2);
-            const clampPoint = point => {
-                point.x = Math.max(marginX, Math.min(width - marginX, point.x));
-                point.y = Math.max(marginY, Math.min(height - marginY, point.y));
-            };
-            clampPoint(pointA);
-            clampPoint(pointB);
-        }
-
         function resizeCanvas() {
             const { width, height } = getRulerViewportSize();
             projectCalipersIntoViewport(width, height);
@@ -2708,7 +2716,6 @@ Y +0°</span>
             canvas.style.height = height + 'px';
             ctx.scale(dpr, dpr);
 
-            clampPointsToWindow(width, height);
             updateDisplayValues();
         }
 
@@ -2724,11 +2731,51 @@ Y +0°</span>
 
         // The handles are ordinary buttons placed over the canvas. This avoids all
         // canvas hit-testing ambiguity: a pressed handle owns its pointer until release.
+        function getCaliperVisibleBounds(width, height, inset = 0) {
+            const reservedEdges = getAdReservedEdges();
+            const bottomInset = document.body.classList.contains('ad-anchor-bottom')
+                ? 0
+                : reservedEdges.bottom;
+            const left = Math.min(width / 2, reservedEdges.left + inset);
+            const right = Math.max(left, width - reservedEdges.right - inset);
+            const top = Math.min(height / 2, reservedEdges.top + inset);
+            const bottom = Math.max(top, height - bottomInset - inset);
+            return { left, right, top, bottom };
+        }
+
+        function getOffscreenCaliperProxy(point, width, height) {
+            const visibleBounds = getCaliperVisibleBounds(width, height);
+            const isOffscreen = point.x < visibleBounds.left || point.x > visibleBounds.right ||
+                point.y < visibleBounds.top || point.y > visibleBounds.bottom;
+            if (!isOffscreen) return null;
+
+            const proxyBounds = getCaliperVisibleBounds(width, height, 30);
+            return {
+                x: Math.max(proxyBounds.left, Math.min(proxyBounds.right, point.x)),
+                y: Math.max(proxyBounds.top, Math.min(proxyBounds.bottom, point.y))
+            };
+        }
+
         function syncCaliperHandles() {
+            const { width, height } = getRulerViewportSize();
             const handles = [[caliperHandleA, pointA], [caliperHandleB, pointB]];
             handles.forEach(([handle, point]) => {
-                handle.style.left = point.x + 'px';
-                handle.style.top = point.y + 'px';
+                const proxy = getOffscreenCaliperProxy(point, width, height);
+                const visiblePoint = proxy || point;
+                handle.style.left = visiblePoint.x + 'px';
+                handle.style.top = visiblePoint.y + 'px';
+                handle.classList.toggle('offscreen-proxy', Boolean(proxy));
+                if (proxy) {
+                    handle.dataset.proxyX = String(proxy.x);
+                    handle.dataset.proxyY = String(proxy.y);
+                    handle.setAttribute('aria-label', `Bring ${handle === caliperHandleA ? 'green' : 'amber'} caliper back on screen`);
+                    handle.title = 'Drag this faint marker to bring the off-screen caliper back here.';
+                } else {
+                    delete handle.dataset.proxyX;
+                    delete handle.dataset.proxyY;
+                    handle.setAttribute('aria-label', `Move ${handle === caliperHandleA ? 'green' : 'amber'} caliper`);
+                    handle.title = `Drag to move the ${handle === caliperHandleA ? 'green' : 'amber'} caliper. Arrow keys move it precisely.`;
+                }
                 handle.classList.toggle('hidden', !showCalipers);
             });
 
@@ -2772,6 +2819,13 @@ Y +0°</span>
 
         function beginCaliperDrag(which, e) {
             if (!showCalipers || activePointerId !== null) return;
+            const point = which.startsWith('A') ? pointA : pointB;
+            if (which.endsWith('BOTH') && e.currentTarget.classList.contains('offscreen-proxy')) {
+                point.x = Number(e.currentTarget.dataset.proxyX);
+                point.y = Number(e.currentTarget.dataset.proxyY);
+                capturePhysicalCaliperPoint(point, which.startsWith('A') ? 'A' : 'B');
+                updateDisplayValues();
+            }
             activePoint = which;
             activePointerId = e.pointerId;
             caliperDraggedThisInteraction = false;
