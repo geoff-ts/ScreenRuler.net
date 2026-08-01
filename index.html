@@ -253,6 +253,88 @@
             left: 50%;
             transform: translateX(-50%);
         }
+        /* BIG RULER is a takeover, not another layer on the ruler: every piece
+           of on-screen furniture stands down for the camera feed, and comes
+           back untouched when the session ends. */
+        body.ar-active #rulerCanvas,
+        body.ar-active #appControlsOverlay,
+        body.ar-active #toggleControlsBtn,
+        body.ar-active #bottomAdContainer,
+        body.ar-active #caliperGuideLayer,
+        body.ar-active #caliperHandleLayer,
+        body.ar-active #bubbleLevelPanel,
+        body.ar-active #onboardingModal,
+        body.ar-active #toast {
+            display: none !important;
+        }
+        #bigRulerOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            background: transparent;
+            touch-action: none;
+        }
+        /* The scene layer is unpadded so screen centre really is screen centre:
+           the hit-test ray comes from the viewer, so the reticle is only
+           geometrically correct at the true middle of the viewport. */
+        #bigRulerScene {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+        #bigRulerChrome {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+            padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+                     max(1rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+        }
+        #bigRulerReticle {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 46px;
+            height: 46px;
+            transform: translate(-50%, -50%);
+            border: 2px solid rgba(255, 255, 255, 0.55);
+            border-radius: 9999px;
+            background: rgba(10, 10, 10, 0.14);
+            box-shadow: 0 0 18px rgba(0, 0, 0, 0.45);
+            transition: border-color 160ms ease, background-color 160ms ease;
+        }
+        #bigRulerReticle::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 4px;
+            height: 4px;
+            margin: -2px 0 0 -2px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        #bigRulerReticle.is-live {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.16);
+            box-shadow: 0 0 22px rgba(16, 185, 129, 0.35);
+        }
+        .big-ruler-point {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            margin: -9px 0 0 -9px;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            border-radius: 9999px;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.55);
+        }
+        .big-ruler-point.point-a { background: #10b981; }
+        .big-ruler-point.point-b { background: #f59e0b; }
+        /* Sits just above the reticle so the running total reads like a tape
+           measure rather than a field in a form. */
+        #bigRulerLiveCard { margin-top: -96px; }
     </style>
 </head>
 <body class="h-full overflow-hidden bg-neutral-950 text-neutral-100 font-sans transition-colors duration-300">
@@ -376,15 +458,15 @@ Y +0°</span>
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
                                     <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Width (px)</label>
-                                    <input type="number" oninput="updateCustomMetric('width', this.value)" class="custom-width-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="1080">
+                                    <input type="number" aria-label="Custom screen resolution width in pixels" oninput="updateCustomMetric('width', this.value)" class="custom-width-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="1080">
                                 </div>
                                 <div>
                                     <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Height (px)</label>
-                                    <input type="number" oninput="updateCustomMetric('height', this.value)" class="custom-height-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="2400">
+                                    <input type="number" aria-label="Custom screen resolution height in pixels" oninput="updateCustomMetric('height', this.value)" class="custom-height-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="2400">
                                 </div>
                                 <div>
                                     <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Diagonal (in)</label>
-                                    <input type="number" step="0.01" oninput="updateCustomMetric('diagonal', this.value)" class="custom-diag-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="6.55">
+                                    <input type="number" step="0.01" aria-label="Custom screen diagonal in inches" oninput="updateCustomMetric('diagonal', this.value)" class="custom-diag-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="6.55">
                                 </div>
                             </div>
                             <div class="text-[10px] text-neutral-500">
@@ -408,7 +490,7 @@ Y +0°</span>
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold uppercase text-neutral-400">Credit Card Outline</span>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="showCalibrationToggle" onchange="toggleCalibration(this.checked)" class="sr-only peer">
+                                <input type="checkbox" id="showCalibrationToggle" aria-label="Show credit card outline" onchange="toggleCalibration(this.checked)" class="sr-only peer">
                                 <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                             </label>
                         </div>
@@ -419,15 +501,15 @@ Y +0°</span>
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
                                     <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Width (px)</label>
-                                    <input type="number" oninput="updateCustomMetric('width', this.value)" class="custom-width-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="1080">
+                                    <input type="number" aria-label="Custom screen resolution width in pixels" oninput="updateCustomMetric('width', this.value)" class="custom-width-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="1080">
                                 </div>
                                 <div>
                                     <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Res Height (px)</label>
-                                    <input type="number" oninput="updateCustomMetric('height', this.value)" class="custom-height-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="2400">
+                                    <input type="number" aria-label="Custom screen resolution height in pixels" oninput="updateCustomMetric('height', this.value)" class="custom-height-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="2400">
                                 </div>
                                 <div>
                                     <label class="block text-[9px] text-neutral-500 uppercase font-semibold">Diagonal (in)</label>
-                                    <input type="number" step="0.01" oninput="updateCustomMetric('diagonal', this.value)" class="custom-diag-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="6.55">
+                                    <input type="number" step="0.01" aria-label="Custom screen diagonal in inches" oninput="updateCustomMetric('diagonal', this.value)" class="custom-diag-input w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs font-mono text-emerald-400 focus:border-emerald-500 outline-none" value="6.55">
                                 </div>
                             </div>
                             <div class="text-[10px] text-neutral-500">
@@ -443,7 +525,7 @@ Y +0°</span>
                                     <span class="font-mono text-sm font-bold">PPI</span>
                                 </div>
                             </div>
-                            <input type="range" id="microSlider" min="0.01" max="13.10" step="0.01" value="6.55" oninput="updateDiagonalFromSlider(this.value)" class="w-full py-2">
+                            <input type="range" id="microSlider" min="0.01" max="13.10" step="0.01" value="6.55" aria-label="Ruler scale, as a screen diagonal in inches" oninput="updateDiagonalFromSlider(this.value)" class="w-full py-2">
                             <div class="scale-position-labels grid grid-cols-3 text-[9px] font-mono text-neutral-500 px-0.5">
                                 <span>0&quot;</span><span>Device</span><span>2× device</span>
                             </div>
@@ -453,24 +535,41 @@ Y +0°</span>
 
                     <div id="tabContent-guides" class="hidden space-y-4">
                         <div class="space-y-3">
+                            <!-- Shown only where immersive-ar is actually available. -->
+                            <div id="bigRulerToolRow" class="hidden border-b border-neutral-800/50 pb-3">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-xs font-bold uppercase text-neutral-400">BIG RULER</span>
+                                    <span class="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300">AR</span>
+                                </div>
+                                <button type="button" onclick="openBigRuler()" class="w-full rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold uppercase text-emerald-300 transition-colors hover:bg-emerald-500/20">
+                                    Measure the room
+                                </button>
+                                <p class="mt-1.5 text-[10px] leading-relaxed text-neutral-500">Uses the camera to measure real distances between two points. Takes over the whole screen.</p>
+                            </div>
+                            <!-- No dead button on unsupported platforms: explain, and
+                                 point at the measuring this app can actually do. -->
+                            <div id="bigRulerUnsupportedRow" class="hidden border-b border-neutral-800/50 pb-3">
+                                <div class="text-xs font-bold uppercase text-neutral-400 mb-1.5">BIG RULER</div>
+                                <p class="text-[10px] leading-relaxed text-neutral-500">AR measuring needs Chrome on an Android device with Google Play Services for AR. On this device, use the calipers below to measure against the screen.</p>
+                            </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold uppercase text-neutral-400">Show Calipers</span>
                                 <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="toggleCalipers" checked onchange="toggleCaliperVisibility(this.checked)" class="sr-only peer">
+                                    <input type="checkbox" id="toggleCalipers" checked aria-label="Show calipers" onchange="toggleCaliperVisibility(this.checked)" class="sr-only peer">
                                     <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                                 </label>
                             </div>
                             <div class="flex items-center justify-between border-t border-neutral-800/50 pt-3">
                                 <span class="text-xs font-bold uppercase text-neutral-400">Protractor</span>
                                 <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="toggleProtractor" onchange="toggleProtractor(this.checked)" class="sr-only peer">
+                                    <input type="checkbox" id="toggleProtractor" aria-label="Show protractor" onchange="toggleProtractor(this.checked)" class="sr-only peer">
                                     <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                                 </label>
                             </div>
                             <div id="bubbleLevelToggleRow" class="hidden flex items-center justify-between border-t border-neutral-800/50 pt-3">
                                 <span class="text-xs font-bold uppercase text-neutral-400">Bubble Level</span>
                                 <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="toggleBubbleLevel" onchange="toggleBubbleLevel(this.checked)" class="sr-only peer">
+                                    <input type="checkbox" id="toggleBubbleLevel" aria-label="Show bubble level" onchange="toggleBubbleLevel(this.checked)" class="sr-only peer">
                                     <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                                 </label>
                             </div>
@@ -480,13 +579,13 @@ Y +0°</span>
                                     <div class="text-[10px] text-neutral-500">Stop banners on this device.</div>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="disableAdsToggle" onchange="setAdsDisabled(this.checked)" class="sr-only peer">
+                                    <input type="checkbox" id="disableAdsToggle" aria-label="Disable ads on this device" onchange="setAdsDisabled(this.checked)" class="sr-only peer">
                                     <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                                 </label>
                             </div>
                             <div class="border-t border-neutral-800/50 pt-3">
                                 <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Background Grid Style</label>
-                                <select id="gridSelect" onchange="setGridType(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
+                                <select id="gridSelect" aria-label="Background grid style" onchange="setGridType(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
                                     <option value="metric" selected>Metric Grid (1cm)</option>
                                     <option value="imperial">Imperial Grid (1")</option>
                                     <option value="both">Dual Mesh Grid</option>
@@ -495,14 +594,14 @@ Y +0°</span>
                             </div>
                             <div class="border-t border-neutral-800/50 pt-3">
                                 <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Inch Measurements</label>
-                                <select id="inchFormatSelect" onchange="setInchFormat(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
+                                <select id="inchFormatSelect" aria-label="Inch measurement format" onchange="setInchFormat(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
                                     <option value="fraction">Fractions (nearest 1/16)</option>
                                     <option value="decimal">Decimals (0.00)</option>
                                 </select>
                             </div>
                             <div class="border-t border-neutral-800/50 pt-3">
                                 <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Units on Rulers</label>
-                                <select id="rulerUnitsSelect" onchange="setRulerUnits(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
+                                <select id="rulerUnitsSelect" aria-label="Units shown on the rulers" onchange="setRulerUnits(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-neutral-200 outline-none">
                                     <option value="metric-primary">Millimetres on top and left</option>
                                     <option value="imperial-primary">Inches on top and left</option>
                                 </select>
@@ -600,7 +699,7 @@ Y +0°</span>
                 <div id="onboardBubbleLevelToggleRow" class="hidden items-center justify-between border-t border-neutral-800/50 pt-3">
                     <span class="text-xs font-bold uppercase text-neutral-400">Bubble Level</span>
                     <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="onboardToggleBubbleLevel" onchange="toggleBubbleLevel(this.checked)" class="sr-only peer">
+                        <input type="checkbox" id="onboardToggleBubbleLevel" aria-label="Show bubble level" onchange="toggleBubbleLevel(this.checked)" class="sr-only peer">
                         <div class="w-10 h-5 bg-neutral-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-300 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
                 </div>
@@ -610,6 +709,62 @@ Y +0°</span>
     <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-xl opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-2xl flex items-center space-x-2 text-xs font-semibold">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
         <span id="toastMsg">Configuration Saved</span>
+    </div>
+
+    <!-- BIG RULER — full-screen AR measure mode. Must be in the DOM and laid
+         out before requestSession, or the WebXR DOM overlay never appears. -->
+    <div id="bigRulerOverlay" class="hidden">
+        <div id="bigRulerScene">
+            <svg id="bigRulerLineLayer" class="absolute inset-0 w-full h-full" aria-hidden="true">
+                <line id="bigRulerLine" class="hidden" stroke="#10b981" stroke-width="3" stroke-linecap="round"></line>
+            </svg>
+            <div id="bigRulerPointA" class="big-ruler-point point-a hidden"></div>
+            <div id="bigRulerPointB" class="big-ruler-point point-b hidden"></div>
+            <div id="bigRulerReticle"></div>
+            <div id="bigRulerLiveCard" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 rounded-2xl border border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 py-2 shadow-2xl">
+                <div id="bigRulerLivePrimary" class="font-mono text-2xl font-bold leading-none text-white">—</div>
+                <div id="bigRulerLiveSecondary" class="font-mono text-[11px] leading-none text-neutral-400">—</div>
+            </div>
+        </div>
+
+        <div id="bigRulerChrome">
+            <div class="flex flex-col items-center gap-2">
+                <div class="pointer-events-auto rounded-2xl border border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 py-2 shadow-2xl flex items-center gap-2">
+                    <span id="bigRulerStatusDot" class="w-2 h-2 rounded-full bg-neutral-500"></span>
+                    <span id="bigRulerStatus" class="text-xs font-bold uppercase tracking-wide text-neutral-300">Starting</span>
+                </div>
+                <div id="bigRulerTrackingWarning" class="hidden rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase text-amber-300 shadow-lg">
+                    Tracking lost — move slowly
+                </div>
+                <div id="bigRulerCoach" class="hidden max-w-[17rem] rounded-xl border border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-3 py-1.5 text-center text-[10px] leading-relaxed text-neutral-400 shadow-lg">
+                    Aim at a textured edge — skirting, trim or a corner. Blank walls, glass and low light are the hard cases.
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <div id="bigRulerKeptPanel" class="hidden pointer-events-auto rounded-2xl border border-neutral-800 bg-neutral-900/95 backdrop-blur-lg shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5">
+                        <span class="text-xs font-bold uppercase text-neutral-400">Kept Measurements</span>
+                        <button type="button" onclick="clearBigRulerKept()" class="rounded-lg border border-neutral-800 bg-neutral-950/50 px-1.5 py-0.5 text-[10px] text-neutral-500 hover:text-white">Clear all</button>
+                    </div>
+                    <div id="bigRulerKeptList" class="max-h-40 overflow-y-auto px-4 py-2.5 space-y-2"></div>
+                    <p class="border-t border-neutral-800/50 px-4 py-2 text-[10px] leading-relaxed text-neutral-500">
+                        Enter a tape-measured value to check the error. Validate at 30 cm, 1 m and 3 m before trusting a reading.
+                    </p>
+                </div>
+
+                <div class="pointer-events-auto flex flex-col gap-2">
+                    <button id="bigRulerPlaceBtn" type="button" onclick="placeBigRulerPoint()" class="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-2xl shadow-emerald-900/30 transition-all hover:bg-emerald-500 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500 disabled:shadow-none">
+                        Place
+                    </button>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="bigRulerClearBtn" type="button" onclick="clearBigRulerPoints()" class="rounded-2xl border border-neutral-800 bg-neutral-900/95 py-3 text-xs font-bold uppercase text-neutral-300 backdrop-blur-md shadow-xl transition-colors hover:bg-neutral-800 disabled:opacity-40">Clear</button>
+                        <button id="bigRulerKeepBtn" type="button" onclick="keepBigRulerMeasurement()" class="rounded-2xl border border-emerald-500/50 bg-emerald-500/10 py-3 text-xs font-bold uppercase text-emerald-300 backdrop-blur-md shadow-xl transition-colors hover:bg-emerald-500/20 disabled:opacity-40">Keep</button>
+                        <button type="button" onclick="exitBigRuler()" class="rounded-2xl border border-neutral-800 bg-neutral-900/95 py-3 text-xs font-bold uppercase text-neutral-300 backdrop-blur-md shadow-xl transition-colors hover:bg-neutral-800">Exit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1095,6 +1250,7 @@ Y +0°</span>
             initializeBottomAd();
             initSearchDropdowns();
             initBubbleLevel();
+            initBigRuler();
             window.requestAnimationFrame(positionSettingsUI);
             document.getElementById('inchFormatSelect').value = inchFormat;
             document.getElementById('rulerUnitsSelect').value = rulerUnitOrder;
@@ -3451,6 +3607,558 @@ Y +0°</span>
             ctx.lineWidth = 1;
             ctx.strokeRect(pointA.x, pointA.y, pointB.x - pointA.x, pointB.y - pointA.y);
             ctx.restore();
+        }
+
+        /* ---------------------------------------------------------------
+           BIG RULER — AR measuring.
+
+           The distance is read straight off the AR runtime's understanding of
+           the room: a ray from the screen centre is hit-tested against mapped
+           surfaces, and two of those hits give a Euclidean distance. There is
+           no accelerometer integration here on purpose — dead reckoning was
+           tried, measured at 10-30% error against a 2% target, and abandoned.
+           Because nothing is integrated there is no drift and no need for the
+           device to be held still.
+           --------------------------------------------------------------- */
+
+        // Kept behind start/getCurrentHit/project/end so the WebXR internals can
+        // be swapped for a native ARKit backend without touching the UI layer.
+        const bigRulerBackend = (() => {
+            let session = null;
+            let gl = null;
+            let refSpace = null;
+            let hitSource = null;
+            let frameCallback = null;
+            let endCallback = null;
+            // Written every frame and read by the UI. Nothing in here triggers a
+            // render on its own; see bigRulerMirrorState for why.
+            const state = { hit: null, tracking: false, viewProjection: null };
+
+            async function isSupported() {
+                if (!window.isSecureContext || !navigator.xr) return false;
+                try {
+                    return await navigator.xr.isSessionSupported('immersive-ar');
+                } catch (_) {
+                    return false;
+                }
+            }
+
+            // Column-major 4x4 multiply, matching the matrix layout WebXR uses:
+            // the element at (row, col) lives at m[col * 4 + row].
+            function multiply(a, b) {
+                const out = new Float32Array(16);
+                for (let col = 0; col < 4; col++) {
+                    for (let row = 0; row < 4; row++) {
+                        let sum = 0;
+                        for (let k = 0; k < 4; k++) sum += a[k * 4 + row] * b[col * 4 + k];
+                        out[col * 4 + row] = sum;
+                    }
+                }
+                return out;
+            }
+
+            function clearState() {
+                state.hit = null;
+                state.tracking = false;
+                state.viewProjection = null;
+            }
+
+            async function start(overlayElement) {
+                // hit-test is the entire feature, so it is required rather than
+                // optional: better to fail here than to open a session that can
+                // never measure anything.
+                session = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['local', 'hit-test'],
+                    optionalFeatures: ['local-floor', 'dom-overlay'],
+                    domOverlay: { root: overlayElement }
+                });
+
+                // Nothing is ever drawn into WebGL, but a session without a base
+                // layer does not produce frames at all.
+                const glCanvas = document.createElement('canvas');
+                gl = glCanvas.getContext('webgl', { xrCompatible: true, alpha: true, antialias: false });
+                if (!gl) throw new Error('WebGL is unavailable');
+                await gl.makeXRCompatible();
+                session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+                // local-floor puts the origin at floor level; not every device offers it.
+                try {
+                    refSpace = await session.requestReferenceSpace('local-floor');
+                } catch (_) {
+                    refSpace = await session.requestReferenceSpace('local');
+                }
+
+                // The ray starts at the viewer and points forward, which is what
+                // puts the hit squarely at the centre of the screen.
+                const viewerSpace = await session.requestReferenceSpace('viewer');
+                // requestHitTestSource is async and missing altogether on older
+                // implementations. Without it there is nothing to measure, so this
+                // fails loudly rather than leaving a session that never finds a
+                // surface and looks merely broken.
+                hitSource = (await session.requestHitTestSource?.({ space: viewerSpace })) || null;
+                if (!hitSource) throw new Error('Hit testing is unavailable');
+
+                // Covers the system back gesture and app switching just as much as
+                // our own Exit button.
+                session.addEventListener('end', () => {
+                    hitSource?.cancel?.();
+                    hitSource = null;
+                    session = null;
+                    gl = null;
+                    refSpace = null;
+                    clearState();
+                    endCallback?.();
+                });
+
+                session.requestAnimationFrame(onFrame);
+            }
+
+            // Note: session.requestAnimationFrame, not the window one — different
+            // clocks, and only this one delivers an XRFrame.
+            function onFrame(time, xrFrame) {
+                // Re-requested before anything that can return early, so a frame
+                // that loses tracking cannot silently kill the loop.
+                session.requestAnimationFrame(onFrame);
+
+                // Without this clear the compositor can show garbage over the camera.
+                const layer = session.renderState.baseLayer;
+                gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+                gl.clearColor(0, 0, 0, 0);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                const pose = xrFrame.getViewerPose(refSpace);
+                if (!pose || pose.views.length === 0) {
+                    // Tracking loss is routine in poor light or fast motion. Report
+                    // it rather than leaving a stale reading looking current.
+                    clearState();
+                    frameCallback?.();
+                    return;
+                }
+
+                state.tracking = true;
+                const view = pose.views[0];
+                state.viewProjection = multiply(view.projectionMatrix, view.transform.inverse.matrix);
+
+                let hit = null;
+                if (hitSource) {
+                    const results = xrFrame.getHitTestResults(hitSource);
+                    if (results.length > 0) {
+                        const hitPose = results[0].getPose(refSpace);
+                        if (hitPose) {
+                            const p = hitPose.transform.position;
+                            hit = { x: p.x, y: p.y, z: p.z };   // metres, world coordinates
+                        }
+                    }
+                }
+                state.hit = hit;
+                frameCallback?.();
+            }
+
+            // Placed points are fixed in the world, so they have to be projected
+            // afresh each frame to stay stuck to the real surface.
+            function project(point) {
+                const vp = state.viewProjection;
+                if (!vp) return null;
+                const w = vp[3] * point.x + vp[7] * point.y + vp[11] * point.z + vp[15];
+                if (w <= 0) return null;   // behind the camera
+                const x = vp[0] * point.x + vp[4] * point.y + vp[8] * point.z + vp[12];
+                const y = vp[1] * point.x + vp[5] * point.y + vp[9] * point.z + vp[13];
+                // CSS pixels, because these numbers position DOM elements. The
+                // WebGL layer viewport is in framebuffer pixels and would be out
+                // by the device pixel ratio.
+                return {
+                    x: (x / w / 2 + 0.5) * window.innerWidth,
+                    y: (1 - (y / w / 2 + 0.5)) * window.innerHeight
+                };
+            }
+
+            return {
+                isSupported,
+                start,
+                project,
+                end: () => { session?.end?.().catch(() => {}); },
+                getCurrentHit: () => state.hit,
+                isTracking: () => state.tracking,
+                isRunning: () => Boolean(session),
+                onFrame: (callback) => { frameCallback = callback; },
+                onEnd: (callback) => { endCallback = callback; }
+            };
+        })();
+
+        // Frame data is mirrored into the text UI on a timer rather than per
+        // frame: this runs at display rate over a live camera feed, and updating
+        // readouts 60+ times a second drops frames and cooks the phone.
+        const BIG_RULER_MIRROR_MS = 100;
+        const BIG_RULER_COACH_DELAY_MS = 4000;
+        let bigRulerAvailable = false;
+        let bigRulerPoints = [];
+        let bigRulerMeasurements = [];
+        let bigRulerMirrorTimer = null;
+        let bigRulerStarting = false;
+        let bigRulerLastLive = null;
+        let bigRulerLastTracking = null;
+        let bigRulerLostHitSince = 0;
+        let bigRulerAudioContext = null;
+        let bigRulerEls = null;
+
+        function bigRulerElements() {
+            if (!bigRulerEls) {
+                bigRulerEls = {
+                    overlay: document.getElementById('bigRulerOverlay'),
+                    reticle: document.getElementById('bigRulerReticle'),
+                    pointA: document.getElementById('bigRulerPointA'),
+                    pointB: document.getElementById('bigRulerPointB'),
+                    line: document.getElementById('bigRulerLine'),
+                    liveCard: document.getElementById('bigRulerLiveCard'),
+                    livePrimary: document.getElementById('bigRulerLivePrimary'),
+                    liveSecondary: document.getElementById('bigRulerLiveSecondary'),
+                    status: document.getElementById('bigRulerStatus'),
+                    statusDot: document.getElementById('bigRulerStatusDot'),
+                    trackingWarning: document.getElementById('bigRulerTrackingWarning'),
+                    coach: document.getElementById('bigRulerCoach'),
+                    placeBtn: document.getElementById('bigRulerPlaceBtn'),
+                    clearBtn: document.getElementById('bigRulerClearBtn'),
+                    keepBtn: document.getElementById('bigRulerKeepBtn'),
+                    keptPanel: document.getElementById('bigRulerKeptPanel'),
+                    keptList: document.getElementById('bigRulerKeptList')
+                };
+            }
+            return bigRulerEls;
+        }
+
+        async function initBigRuler() {
+            bigRulerAvailable = await bigRulerBackend.isSupported();
+            document.getElementById('bigRulerToolRow').classList.toggle('hidden', !bigRulerAvailable);
+            document.getElementById('bigRulerUnsupportedRow').classList.toggle('hidden', bigRulerAvailable);
+            if (!bigRulerAvailable) return;
+
+            bigRulerBackend.onFrame(drawBigRulerFrame);
+            bigRulerBackend.onEnd(closeBigRulerUi);
+            // Taps on the overlay controls would otherwise also fire XR select
+            // events at whatever the camera is pointed at.
+            bigRulerElements().overlay.addEventListener('beforexrselect', (e) => e.preventDefault());
+        }
+
+        async function openBigRuler() {
+            if (!bigRulerAvailable || bigRulerStarting || bigRulerBackend.isRunning()) return;
+            bigRulerStarting = true;
+
+            const els = bigRulerElements();
+            bigRulerPoints = [];
+            bigRulerLastLive = null;
+            bigRulerLastTracking = null;
+            bigRulerLostHitSince = 0;
+            drawBigRulerKept();
+
+            // The overlay root has to exist and be laid out before requestSession,
+            // or the DOM overlay silently never appears. Showing it and waiting two
+            // frames gets it through layout while the tap is still fresh enough to
+            // count as the user gesture the session needs.
+            els.overlay.classList.remove('hidden');
+            document.body.classList.add('ar-active');
+            bigRulerMirrorState();
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+            try {
+                await bigRulerBackend.start(els.overlay);
+                bigRulerMirrorTimer = window.setInterval(bigRulerMirrorState, BIG_RULER_MIRROR_MS);
+            } catch (error) {
+                // Setup can fail after the session opened (no WebGL, no hit-test
+                // source), which would otherwise strand a live camera session.
+                bigRulerBackend.end();
+                closeBigRulerUi();
+                showToast(error?.name === 'NotAllowedError'
+                    ? 'Camera access is needed for BIG RULER.'
+                    : 'BIG RULER could not start on this device.');
+            } finally {
+                bigRulerStarting = false;
+            }
+        }
+
+        function exitBigRuler() {
+            bigRulerBackend.end();
+            // The session's end event drives the teardown, so an exit we did not
+            // initiate lands in exactly the same place.
+            if (!bigRulerBackend.isRunning()) closeBigRulerUi();
+        }
+
+        function closeBigRulerUi() {
+            const els = bigRulerElements();
+            window.clearInterval(bigRulerMirrorTimer);
+            bigRulerMirrorTimer = null;
+            document.body.classList.remove('ar-active');
+            els.overlay.classList.add('hidden');
+            els.pointA.classList.add('hidden');
+            els.pointB.classList.add('hidden');
+            els.line.classList.add('hidden');
+            els.liveCard.classList.add('hidden');
+            els.coach.classList.add('hidden');
+            bigRulerPoints = [];
+        }
+
+        // Runs at display rate. Direct style writes only — cheap, and what keeps
+        // the markers glued to the surface as the camera moves.
+        function drawBigRulerFrame() {
+            const els = bigRulerElements();
+            const hit = bigRulerBackend.getCurrentHit();
+            const tracking = bigRulerBackend.isTracking();
+
+            const live = Boolean(hit);
+            if (live !== bigRulerLastLive) {
+                els.reticle.classList.toggle('is-live', live);
+                bigRulerLastLive = live;
+            }
+            if (tracking !== bigRulerLastTracking) {
+                els.trackingWarning.classList.toggle('hidden', tracking);
+                bigRulerLastTracking = tracking;
+            }
+
+            // While measuring, the loose end of the line follows the live hit.
+            const first = bigRulerPoints[0] ? bigRulerBackend.project(bigRulerPoints[0]) : null;
+            const secondPoint = bigRulerPoints[1] || (bigRulerPoints.length === 1 ? hit : null);
+            const second = secondPoint ? bigRulerBackend.project(secondPoint) : null;
+
+            positionBigRulerMarker(els.pointA, first);
+            positionBigRulerMarker(els.pointB, bigRulerPoints[1] ? second : null);
+
+            // A point behind the camera projects to a mirrored, meaningless spot,
+            // so the line is drawn only when both ends are genuinely in front.
+            if (first && second) {
+                els.line.setAttribute('x1', first.x);
+                els.line.setAttribute('y1', first.y);
+                els.line.setAttribute('x2', second.x);
+                els.line.setAttribute('y2', second.y);
+                els.line.classList.remove('hidden');
+            } else {
+                els.line.classList.add('hidden');
+            }
+        }
+
+        function positionBigRulerMarker(element, screenPoint) {
+            if (!screenPoint) {
+                element.classList.add('hidden');
+                return;
+            }
+            element.style.left = screenPoint.x + 'px';
+            element.style.top = screenPoint.y + 'px';
+            element.classList.remove('hidden');
+        }
+
+        // The ~100ms mirror: everything that costs a layout or a text change.
+        function bigRulerMirrorState() {
+            const els = bigRulerElements();
+            const running = bigRulerBackend.isRunning();
+            const hit = bigRulerBackend.getCurrentHit();
+            const tracking = bigRulerBackend.isTracking();
+            const placed = bigRulerPoints.length;
+
+            let status = 'Starting';
+            let dot = 'bg-neutral-500';
+            if (running && !tracking) {
+                status = 'Tracking lost';
+                dot = 'bg-amber-500';
+            } else if (running && placed >= 2) {
+                status = 'Measurement complete';
+                dot = 'bg-emerald-500';
+            } else if (running && !hit) {
+                status = 'Finding surface';
+                dot = 'bg-neutral-500';
+            } else if (running && placed === 0) {
+                status = 'Tap Place for the first point';
+                dot = 'bg-emerald-500';
+            } else if (running) {
+                status = 'Move to the second point';
+                dot = 'bg-emerald-500';
+            }
+            els.status.textContent = status;
+            els.statusDot.className = `w-2 h-2 rounded-full ${dot}`;
+
+            // Live distance while measuring is what makes this feel like a tape
+            // measure instead of a two-step form.
+            let distance = null;
+            if (placed >= 2) distance = bigRulerDistance(bigRulerPoints[0], bigRulerPoints[1]);
+            else if (placed === 1 && hit) distance = bigRulerDistance(bigRulerPoints[0], hit);
+
+            if (distance === null) {
+                els.liveCard.classList.add('hidden');
+            } else {
+                els.livePrimary.textContent = formatBigRulerPrimary(distance);
+                els.liveSecondary.textContent = formatBigRulerSecondary(distance);
+                els.liveCard.classList.remove('hidden');
+            }
+
+            els.placeBtn.disabled = !hit;
+            els.placeBtn.textContent = placed >= 2 ? 'Measure again' : 'Place';
+            els.clearBtn.disabled = placed === 0;
+            els.keepBtn.disabled = placed < 2;
+
+            // Coaching after a few fruitless seconds: aiming matters far more than
+            // anything the user can do with the buttons.
+            if (running && tracking && !hit) {
+                if (!bigRulerLostHitSince) bigRulerLostHitSince = performance.now();
+                const stalled = performance.now() - bigRulerLostHitSince > BIG_RULER_COACH_DELAY_MS;
+                els.coach.classList.toggle('hidden', !stalled);
+            } else {
+                bigRulerLostHitSince = 0;
+                els.coach.classList.add('hidden');
+            }
+        }
+
+        function placeBigRulerPoint() {
+            const hit = bigRulerBackend.getCurrentHit();
+            if (!hit) return;
+            // A third placement starts a fresh measurement from where you are now.
+            if (bigRulerPoints.length >= 2) bigRulerPoints = [hit];
+            else bigRulerPoints.push(hit);
+            confirmBigRulerPlacement();
+            bigRulerMirrorState();
+        }
+
+        function clearBigRulerPoints() {
+            bigRulerPoints = [];
+            bigRulerMirrorState();
+        }
+
+        function keepBigRulerMeasurement() {
+            if (bigRulerPoints.length < 2) return;
+            const [a, b] = bigRulerPoints;
+            // The coordinates are only meaningful inside this session — the
+            // reference space origin is established at start and lost at the end —
+            // so they are kept for diagnostics and the distance is the real result.
+            bigRulerMeasurements.unshift({
+                id: `br-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+                distanceM: bigRulerDistance(a, b),
+                a: { ...a },
+                b: { ...b },
+                capturedAt: new Date().toISOString(),
+                truthM: null
+            });
+            bigRulerPoints = [];
+            drawBigRulerKept();
+            bigRulerMirrorState();
+        }
+
+        function clearBigRulerKept() {
+            bigRulerMeasurements = [];
+            drawBigRulerKept();
+        }
+
+        function drawBigRulerKept() {
+            const els = bigRulerElements();
+            els.keptPanel.classList.toggle('hidden', bigRulerMeasurements.length === 0);
+            els.keptList.textContent = '';
+
+            bigRulerMeasurements.forEach(measurement => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2';
+
+                const value = document.createElement('div');
+                value.className = 'font-mono text-sm font-semibold text-white';
+                value.textContent = formatBigRulerPrimary(measurement.distanceM);
+
+                const check = document.createElement('div');
+                check.className = 'flex items-center gap-1.5';
+
+                const error = document.createElement('span');
+                error.className = 'font-mono text-[10px] text-neutral-500 w-12 text-right';
+                error.textContent = bigRulerErrorLabel(measurement);
+
+                const truth = document.createElement('input');
+                truth.type = 'number';
+                truth.step = '0.1';
+                truth.min = '0';
+                truth.placeholder = 'actual';
+                truth.setAttribute('aria-label', 'Tape-measured distance in centimetres');
+                truth.className = 'w-20 bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-right text-[11px] font-mono text-emerald-400 outline-none focus:border-emerald-500';
+                if (measurement.truthM !== null) truth.value = (measurement.truthM * 100).toFixed(1);
+                truth.oninput = () => {
+                    const centimetres = parseFloat(truth.value);
+                    measurement.truthM = Number.isFinite(centimetres) && centimetres > 0 ? centimetres / 100 : null;
+                    error.textContent = bigRulerErrorLabel(measurement);
+                };
+
+                const unit = document.createElement('span');
+                unit.className = 'text-[10px] text-neutral-500';
+                unit.textContent = 'cm';
+
+                check.append(error, truth, unit);
+                row.append(value, check);
+                els.keptList.appendChild(row);
+            });
+        }
+
+        function bigRulerErrorLabel(measurement) {
+            if (!measurement.truthM) return '';
+            const errorPercent = ((measurement.distanceM - measurement.truthM) / measurement.truthM) * 100;
+            return `${errorPercent >= 0 ? '+' : ''}${errorPercent.toFixed(1)}%`;
+        }
+
+        // The device is held at arm's length and the user is watching the surface,
+        // not the button, so placement confirms without needing to be seen.
+        function confirmBigRulerPlacement() {
+            navigator.vibrate?.(18);
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                bigRulerAudioContext = bigRulerAudioContext || new AudioCtx();
+                const now = bigRulerAudioContext.currentTime;
+                const oscillator = bigRulerAudioContext.createOscillator();
+                const gain = bigRulerAudioContext.createGain();
+                oscillator.frequency.value = 880;
+                gain.gain.setValueAtTime(0.0001, now);
+                gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+                oscillator.connect(gain).connect(bigRulerAudioContext.destination);
+                oscillator.start(now);
+                oscillator.stop(now + 0.13);
+            } catch (_) {
+                // The confirmation tone is a nicety; never let it break a placement.
+            }
+        }
+
+        function bigRulerDistance(a, b) {
+            return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+        }
+
+        // Two significant figures: more digits imply an accuracy hit-testing does
+        // not have.
+        function bigRulerSignificant(value) {
+            if (!Number.isFinite(value) || value === 0) return '0';
+            // Rounded first, then the decimal places are taken from the rounded
+            // magnitude — otherwise a value like 0.999 crosses a decade while
+            // being rounded and prints a third digit as "1.00".
+            const rounded = Number(value.toPrecision(2));
+            const decimals = Math.min(3, Math.max(0, 1 - Math.floor(Math.log10(Math.abs(rounded)))));
+            return rounded.toFixed(decimals);
+        }
+
+        // Centimetres below a metre, metres above. The threshold sits just under
+        // 1 so a reading that would round to "100 cm" reads "1.0 m" instead.
+        function formatBigRulerMetric(metres) {
+            return metres < 0.995
+                ? `${bigRulerSignificant(metres * 100)} cm`
+                : `${bigRulerSignificant(metres)} m`;
+        }
+
+        function formatBigRulerImperial(metres) {
+            // Rounded to sixteenths first so a remainder of 11.99" cannot print as 12".
+            const sixteenths = Math.round((metres / 0.0254) * 16);
+            const feet = Math.floor(sixteenths / 192);
+            const inches = (sixteenths - feet * 192) / 16;
+            return feet ? `${feet}' ${formatInches(inches)}` : formatInches(inches);
+        }
+
+        // Follows whichever unit order the on-screen rulers are set to.
+        function formatBigRulerPrimary(metres) {
+            return rulerUnitOrder === 'imperial-primary'
+                ? formatBigRulerImperial(metres)
+                : formatBigRulerMetric(metres);
+        }
+
+        function formatBigRulerSecondary(metres) {
+            return rulerUnitOrder === 'imperial-primary'
+                ? formatBigRulerMetric(metres)
+                : formatBigRulerImperial(metres);
         }
 
         function showToast(msg) {

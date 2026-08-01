@@ -25,6 +25,16 @@ The optional third-party MobileAPI lookup has a small shared allowance that rese
 
 The MobileAPI fallback is optional and used only after local matching and shared templates cannot supply a result.
 
+## Linting
+
+`.hintrc` configures webhint (used by the Microsoft Edge Tools editor extension). Three rules are deliberately turned down, and one of them matters:
+
+- **`meta-viewport` is off.** The viewport meta intentionally sets `maximum-scale=1.0, user-scalable=no`. Normally suppressing pinch-zoom is an accessibility fault, but this page is a ruler: its measurements are only correct at the CSS pixel scale it was calibrated against, so a pinch-zoom would silently make every reading wrong. **Do not re-enable this rule and "fix" the viewport tag** without first solving how calibration survives a user zoom.
+- **`no-inline-styles` is off.** The hint asks for styles to move to an external CSS file, which does not apply to a deliberately single-file app.
+- **`compat-api/css` ignores `scrollbar-width`, `scrollbar-color` and `scrollbar-gutter`.** These are unsupported on older Chrome and on Safari, but the `::-webkit-scrollbar` rules directly beneath them already cover those browsers.
+
+Accessibility hints (`axe/*`) are left on and should be kept passing.
+
 ## Contributing and security
 
 Issues and corrections to display dimensions are welcome. Please do not commit `.env` files, Supabase service-role keys, MobileAPI tokens, or any other secret. `ruler-config.js` intentionally contains only browser-public configuration, such as the Supabase publishable key and AdSense publisher ID.
