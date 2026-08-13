@@ -20,13 +20,13 @@
          opened, so failures are reported on the page itself. This must stay the
          first script on the page: it can only catch what it is installed before.
          On a healthy load nothing here ever becomes visible. -->
-    <script src="diagnostics.js"></script>
+    <script src="diagnostics.js?v=20260813a"></script>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="ruler-config.js"></script>
+    <script src="ruler-config.js?v=20260813a"></script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4844506276858974"
          crossorigin="anonymous"></script>
-    <script src="device-presets.js"></script>
+    <script src="device-presets.js?v=20260813a"></script>
     <style>
         /* Overflow only reaches the viewport from the body while the root
            element is `visible`. Ad previewers re-serve this page inside an
@@ -302,6 +302,11 @@
         body.ar-active #onboardingModal,
         body.ar-active #toast {
             display: none !important;
+        }
+        /* The still frame is painted onto the body too, and the body is the one
+           surface the camera feed shows through. It stands down as well. */
+        body.ar-active {
+            background-image: none !important;
         }
         #bigRulerOverlay {
             position: fixed;
@@ -847,6 +852,6 @@ Y +0°</span>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20260813a"></script>
 </body>
 </html>

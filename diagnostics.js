@@ -1,6 +1,25 @@
 (function () {
     var notes = [];
     var panel = null;
+    var started = Date.now();
+
+    // Ad previewers serialise the dom and throw the scripts away, so the only
+    // way to learn anything from a render that went wrong there is to leave the
+    // evidence in the markup itself. These two attributes ride along on <html>,
+    // are invisible to a visitor, and survive the round trip. Read them off the
+    // failing snapshot: `boot` says how far startup got and when, `notes` says
+    // what broke. On a healthy load `boot` simply lists every milestone.
+    function stamp(name, value) {
+        try { document.documentElement.setAttribute('data-ruler-' + name, value); } catch (_) {}
+    }
+
+    window.SCREEN_RULER_TRACE = function (label) {
+        try {
+            var previous = document.documentElement.getAttribute('data-ruler-boot');
+            stamp('boot', (previous ? previous + ' ' : '') + label + '@' + (Date.now() - started));
+        } catch (_) {}
+    };
+    window.SCREEN_RULER_TRACE('script');
 
     function paint() {
         if (!document.body) { setTimeout(paint, 50); return; }
@@ -24,6 +43,9 @@
     // confirms the app really did fail to start.
     function note(text, showNow) {
         if (notes.indexOf(text) === -1) notes.push(text);
+        // Recorded silently even when nothing is painted, so a failure that the
+        // watchdog decides not to show still leaves a trace in the snapshot.
+        stamp('notes', notes.join(' | ').replace(/\s+/g, ' ').slice(0, 2000));
         if (showNow || panel) paint();
     }
 

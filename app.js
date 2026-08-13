@@ -302,7 +302,12 @@
                     body: JSON.stringify({
                         action: 'lookup', model: detectedDeviceModel,
                         width: signature.width, height: signature.height
-                    })
+                    }),
+                    // Onboarding is awaiting this, so a request that never settles
+                    // would leave the visitor on a page that never finishes
+                    // starting. An abort lands in the catch below like any other
+                    // failure and the flow carries on without a template.
+                    signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined
                 });
                 const result = await response.json();
                 return response.ok && result.template ? result.template : null;
@@ -518,10 +523,13 @@
         // previewers and review crawlers commonly stall it), `load` never fires
         // and the canvas was left unsized on an empty page. Booting from
         // DOMContentLoaded keeps the ruler independent of the network.
+        const trace = window.SCREEN_RULER_TRACE || function () {};
+
         let hasBooted = false;
         function bootApp() {
             if (hasBooted) return;
             hasBooted = true;
+            trace('boot');
             syncAdPreferenceUI();
             initializeBottomAd();
             initSearchDropdowns();
@@ -530,12 +538,28 @@
             window.requestAnimationFrame(positionSettingsUI);
             document.getElementById('inchFormatSelect').value = inchFormat;
             document.getElementById('rulerUnitsSelect').value = rulerUnitOrder;
+
+            // Paint before anything asynchronous. The ruler needs no permission
+            // and no network to draw - only a scale, and it always has one, even
+            // if that is the built-in default. Everything below waits on client
+            // hints and, for a visitor with no saved calibration, a template
+            // lookup over the network, so leaving the first paint behind them
+            // left the page black for as long as those took. A crawler that
+            // serialises the dom on its own schedule then caught a black page
+            // roughly half the time. The correctly scaled ruler follows a moment
+            // later, from the same drawAll() that always redrew it.
+            resizeCanvas();
+            updateDisplayValues();
+            drawAll();
+            trace('firstdraw:' + canvas.width + 'x' + canvas.height);
+
             detectDeviceProfile().finally(async () => {
                 updateOnboardingBubbleLevelControl();
                 await checkFirstTimeOnboarding();
                 resizeCanvas();
                 updateDisplayValues();
                 drawAll();
+                trace('calibrated');
             });
 
             window.addEventListener('resize', () => {
@@ -619,6 +643,7 @@
             bootApp();
             resizeCanvas();
             drawAll();
+            trace('load');
             window.requestAnimationFrame(positionSettingsUI);
         });
 
@@ -2450,6 +2475,7 @@
         // arrive at any moment - and every later one waits for the app to go quiet.
         let canvasMirrorTimer = null;
         let hasMirroredOnce = false;
+        let hasTracedMirror = false;
         function scheduleCanvasMirror() {
             if (!canvasMirror) return;
             if (!hasMirroredOnce) {
@@ -2467,16 +2493,25 @@
         // drawn to the real one. Writing the state back into the attributes keeps
         // the two agreeing. Each of these is the control's *default*, which a
         // control the visitor has already touched ignores.
+        // Every write here is a dom mutation, and this runs on a timer against
+        // roughly two dozen controls. Writing only what actually changed keeps a
+        // settled page settled, which matters if the crawler is waiting for the
+        // dom to go quiet before it serialises.
         function reflectFormStateToAttributes() {
             document.querySelectorAll('input, select, textarea').forEach(field => {
                 if (field.type === 'checkbox' || field.type === 'radio') {
-                    field.toggleAttribute('checked', field.checked);
+                    if (field.hasAttribute('checked') !== field.checked) {
+                        field.toggleAttribute('checked', field.checked);
+                    }
                 } else if (field.tagName === 'SELECT') {
-                    Array.from(field.options).forEach(option =>
-                        option.toggleAttribute('selected', option.selected));
+                    Array.from(field.options).forEach(option => {
+                        if (option.hasAttribute('selected') !== option.selected) {
+                            option.toggleAttribute('selected', option.selected);
+                        }
+                    });
                 } else if (field.tagName === 'TEXTAREA') {
-                    field.textContent = field.value;
-                } else {
+                    if (field.textContent !== field.value) field.textContent = field.value;
+                } else if (field.getAttribute('value') !== field.value) {
                     field.setAttribute('value', field.value);
                 }
             });
@@ -2485,7 +2520,7 @@
         const CANVAS_MIRROR_MAX_EDGE = 1400;
         function updateCanvasMirror() {
             reflectFormStateToAttributes();
-            if (!canvasMirror || !canvas.width || !canvas.height) return;
+            if (!canvas.width || !canvas.height) return;
             try {
                 const cssWidth = parseFloat(canvas.style.width) || canvas.width;
                 const cssHeight = parseFloat(canvas.style.height) || canvas.height;
@@ -2497,11 +2532,32 @@
                 still.width = Math.max(1, Math.round(cssWidth * scale));
                 still.height = Math.max(1, Math.round(cssHeight * scale));
                 still.getContext('2d').drawImage(canvas, 0, 0, still.width, still.height);
-                canvasMirror.src = still.toDataURL('image/png');
-                canvasMirror.style.width = cssWidth + 'px';
-                canvasMirror.style.height = cssHeight + 'px';
-            } catch (_) {
+                const frame = still.toDataURL('image/png');
+
+                if (canvasMirror) {
+                    canvasMirror.src = frame;
+                    canvasMirror.style.width = cssWidth + 'px';
+                    canvasMirror.style.height = cssHeight + 'px';
+                }
+
+                // The same frame goes on the body as well, because the previewer
+                // hides individual elements it reads as overlays - it already does
+                // this to the settings card - and a ruler that lives in exactly one
+                // element is one heuristic away from being a black rectangle again.
+                // Nothing can hide the body without hiding the page. Both copies
+                // share this one data url, so the page carries no extra encoding
+                // work, only the second reference.
+                document.body.style.backgroundImage = `url("${frame}")`;
+                document.body.style.backgroundRepeat = 'no-repeat';
+                document.body.style.backgroundPosition = 'left top';
+                document.body.style.backgroundSize = `${cssWidth}px ${cssHeight}px`;
+                if (!hasTracedMirror) {
+                    hasTracedMirror = true;
+                    trace('mirror:' + Math.round(frame.length / 1024) + 'kb');
+                }
+            } catch (error) {
                 // An unreadable canvas only costs the still; the live one is fine.
+                trace('mirrorfailed:' + (error && error.name));
             }
         }
 
