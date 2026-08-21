@@ -10,7 +10,7 @@
     <meta name="google-adsense-account" content="ca-pub-4844506276858974">
     <title>Screen Ruler — On-screen ruler, calipers and bubble level</title>
     <meta name="description" content="A free on-screen ruler for your phone or tablet. Calibrate to your exact display, then measure in millimetres or inches with draggable calipers, a protractor and a bubble level.">
-    <link rel="canonical" href="https://screenruler.net/index.html">
+    <link rel="canonical" href="https://screenruler.net/">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <!-- Every visible pixel of the ruler is painted by script, so an uncaught
@@ -424,7 +424,9 @@
          survive the round trip; on a live page the canvas paints over it. -->
     <img id="rulerCanvasMirror" alt="" aria-hidden="true">
 
-    <canvas id="rulerCanvas" class="absolute inset-0 w-full h-full block z-0"></canvas>
+    <canvas id="rulerCanvas" role="img"
+        aria-label="Screen Ruler: a calibrated on-screen ruler with millimetre and inch scales and draggable calipers."
+        class="absolute inset-0 w-full h-full block z-0"></canvas>
 
     <!-- Wide, invisible one-axis targets for the dotted guide lines. -->
     <div id="caliperGuideLayer" class="absolute inset-0 pointer-events-none" style="z-index: 5;">

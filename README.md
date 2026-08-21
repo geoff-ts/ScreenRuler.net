@@ -10,8 +10,19 @@ This is a static site. Open `index.html` in a modern browser, or serve this fold
 - `about.html`
 - `device-presets.js`
 - `ruler-config.js`
+- `ads.txt`
 
 The optional Supabase Edge Functions in `supabase/functions/` provide the shared calibration templates and MobileAPI fallback. They require server-side environment variables and should be deployed separately.
+
+## Deployment
+
+Pushing `main` deploys the public site to HostGator via the GitHub Actions workflow in `.github/workflows/deploy.yml`. The GitHub repository needs these Actions secrets:
+
+- `FTP_SERVER` — the HostGator FTPS hostname.
+- `FTP_USERNAME` — a dedicated FTP account limited to `public_html/website_8a8b8e02`.
+- `FTP_PASSWORD` — that account's password.
+
+The workflow uploads only public runtime files and does not delete files already present on the server. It deliberately leaves cPanel-managed directories such as `.well-known` and `cgi-bin` untouched.
 
 ## Privacy and community templates
 

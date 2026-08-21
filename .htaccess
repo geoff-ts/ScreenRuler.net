@@ -1,0 +1,10 @@
+RewriteEngine On
+
+# Always send /index.html to the canonical root URL.
+RewriteCond %{THE_REQUEST} \s/+index\.html(?:[?\s]|$) [NC]
+RewriteRule ^index\.html$ https://screenruler.net/ [R=301,L]
+
+# Use HTTPS and the non-www hostname for every other request.
+RewriteCond %{HTTPS} !=on [OR]
+RewriteCond %{HTTP_HOST} !^screenruler\.net$ [NC]
+RewriteRule ^ https://screenruler.net%{REQUEST_URI} [R=301,L]
