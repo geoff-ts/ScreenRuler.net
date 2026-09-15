@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Contact the developer of Screen Ruler.">
+    <title>Contact — Screen Ruler</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="ruler-config.js"></script>
+</head>
+<body class="min-h-full bg-black text-neutral-200 antialiased">
+    <main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-12">
+        <a href="index.html" class="mb-10 inline-flex w-fit items-center gap-2 text-sm font-semibold text-emerald-400 transition-colors hover:text-emerald-300">
+            <span aria-hidden="true">&larr;</span> Back to Screen Ruler
+        </a>
+
+        <section class="rounded-3xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-2xl sm:p-9">
+            <p class="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">Screen Ruler</p>
+            <h1 class="mb-3 text-3xl font-bold text-white">Get in touch</h1>
+            <p class="mb-8 leading-relaxed text-neutral-300">Found a measurement issue, have a feature idea, or just want to say hello? Send a message and I’ll get back to you at the email address you provide.</p>
+
+            <form id="contactForm" class="space-y-5" novalidate>
+                <!-- Honeypot: hidden from people, but bots that fill every input expose themselves. -->
+                <div class="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+                    <label for="website">Leave this field empty</label>
+                    <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-semibold text-white" for="name">Name</label>
+                    <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="80" class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30" placeholder="Your name">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-semibold text-white" for="email">Email</label>
+                    <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30" placeholder="you@example.com">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-semibold text-white" for="subject">Subject</label>
+                    <input id="subject" name="subject" type="text" required minlength="3" maxlength="140" class="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30" placeholder="What can I help with?">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-semibold text-white" for="message">Message</label>
+                    <textarea id="message" name="message" required minlength="20" maxlength="5000" rows="7" class="w-full resize-y rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-neutral-100 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30" placeholder="Please include enough detail for me to help."></textarea>
+                    <p class="mt-2 text-xs text-neutral-500">Please don’t include passwords, payment details, or other sensitive information.</p>
+                </div>
+
+                <div id="turnstileContainer" class="min-h-[65px]"></div>
+                <p id="formStatus" class="hidden rounded-xl border px-4 py-3 text-sm" role="status" aria-live="polite"></p>
+
+                <button id="submitButton" type="submit" disabled class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50">Send message</button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        (() => {
+            const config = window.SCREEN_RULER_CONFIG || {};
+            const form = document.getElementById('contactForm');
+            const submitButton = document.getElementById('submitButton');
+            const status = document.getElementById('formStatus');
+            const openedAt = Date.now();
+            let turnstileReady = false;
+
+            function showStatus(message, type) {
+                status.textContent = message;
+                status.className = `rounded-xl border px-4 py-3 text-sm ${type === 'success'
+                    ? 'border-emerald-500/50 bg-emerald-950/50 text-emerald-200'
+                    : 'border-red-500/50 bg-red-950/40 text-red-200'}`;
+            }
+
+            function setBusy(busy) {
+                submitButton.disabled = busy || !turnstileReady;
+                submitButton.textContent = busy ? 'Sending…' : 'Send message';
+            }
+
+            window.onTurnstileLoad = () => {
+                if (!window.turnstile || !config.turnstileSiteKey) return;
+                window.turnstile.render('#turnstileContainer', {
+                    sitekey: config.turnstileSiteKey,
+                    theme: 'dark',
+                    action: 'contact',
+                    callback: () => {
+                        turnstileReady = true;
+                        setBusy(false);
+                    },
+                    'expired-callback': () => {
+                        turnstileReady = false;
+                        setBusy(false);
+                    },
+                    'error-callback': () => {
+                        turnstileReady = false;
+                        setBusy(false);
+                        showStatus('The spam check could not load. Please refresh and try again.', 'error');
+                    }
+                });
+            };
+
+            if (!config.contactEndpoint || !config.supabaseAnonKey || !config.turnstileSiteKey) {
+                showStatus('The contact form is being set up. Please check back shortly.', 'error');
+                setBusy(false);
+                return;
+            }
+
+            const turnstileScript = document.createElement('script');
+            turnstileScript.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
+            turnstileScript.async = true;
+            turnstileScript.defer = true;
+            document.head.appendChild(turnstileScript);
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                status.classList.add('hidden');
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return;
+                }
+                const token = window.turnstile?.getResponse();
+                if (!token) {
+                    showStatus('Please complete the spam check before sending.', 'error');
+                    return;
+                }
+
+                setBusy(true);
+                const values = new FormData(form);
+                try {
+                    const response = await fetch(config.contactEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            apikey: config.supabaseAnonKey,
+                            Authorization: `Bearer ${config.supabaseAnonKey}`
+                        },
+                        body: JSON.stringify({
+                            name: values.get('name'),
+                            email: values.get('email'),
+                            subject: values.get('subject'),
+                            message: values.get('message'),
+                            website: values.get('website'),
+                            turnstileToken: token,
+                            formStartedAt: openedAt
+                        })
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(result.error || 'Your message could not be sent. Please try again later.');
+                    form.reset();
+                    window.turnstile?.reset();
+                    turnstileReady = false;
+                    showStatus('Thanks — your message has been sent.', 'success');
+                } catch (error) {
+                    showStatus(error.message || 'Your message could not be sent. Please try again later.', 'error');
+                } finally {
+                    setBusy(false);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

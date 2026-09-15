@@ -12,7 +12,7 @@ This is a static site. Open `index.html` in a modern browser, or serve this fold
 - `ruler-config.js`
 - `ads.txt`
 
-The optional Supabase Edge Functions in `supabase/functions/` provide the shared calibration templates and MobileAPI fallback. They require server-side environment variables and should be deployed separately.
+The optional Supabase Edge Functions in `supabase/functions/` provide the shared calibration templates, MobileAPI fallback and contact form. They require server-side environment variables and should be deployed separately.
 
 ## Deployment
 
@@ -23,6 +23,18 @@ Pushing `main` deploys the public site to HostGator via the GitHub Actions workf
 - `FTP_PASSWORD` — that account's password.
 
 The workflow uploads only public runtime files and does not delete files already present on the server. It deliberately leaves cPanel-managed directories such as `.well-known` and `cgi-bin` untouched.
+
+### Contact form setup
+
+The form is intentionally unavailable until its server-side protections are configured. Before deploying the `contact` Edge Function, create a Cloudflare Turnstile widget for `screenruler.net`, add its public site key to `turnstileSiteKey` in `ruler-config.js`, and set these Supabase Edge Function secrets:
+
+- `TURNSTILE_SECRET_KEY` — the Turnstile widget's secret key.
+- `RESEND_API_KEY` — a Resend API key.
+- `CONTACT_FROM_EMAIL` — a Resend-verified sender, for example `Screen Ruler <contact@screenruler.net>`.
+- `CONTACT_RATE_LIMIT_SALT` — a random, private value used to hash visitor addresses.
+- `ALLOWED_ORIGINS` — `https://screenruler.net` (add local origins only while testing).
+
+Then apply the contact-rate-limit migration and deploy with `supabase functions deploy contact --no-verify-jwt`. The message recipient is fixed in the function as `geoffrey.brom@gmail.com`; it is never supplied by the browser.
 
 ## Privacy and community templates
 
