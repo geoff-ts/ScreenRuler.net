@@ -1,9 +1,7 @@
 # Deploy the static Screen Ruler site whenever main is pushed to GitHub.
 #
-# Required repository secrets (Settings -> Secrets and variables -> Actions):
-#   FTP_USERNAME A dedicated FTP account restricted to
-#                public_html/website_8a8b8e02.
-#   FTP_PASSWORD The dedicated account's password.
+# Required repository secret (Settings -> Secrets and variables -> Actions):
+#   FTP_PASSWORD The dedicated ScreenRuler deployment account's password.
 name: Deploy Screen Ruler to HostGator
 
 on:
@@ -31,7 +29,7 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: gator3168.hostgator.com
-          username: ${{ secrets.FTP_USERNAME }}
+          username: screenrulerdeploy@screenruler.net
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
