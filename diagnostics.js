@@ -1,94 +1,46 @@
 (function () {
-    var notes = [];
-    var panel = null;
-    var started = Date.now();
-
-    // Ad previewers serialise the dom and throw the scripts away, so the only
-    // way to learn anything from a render that went wrong there is to leave the
-    // evidence in the markup itself. These two attributes ride along on <html>,
-    // are invisible to a visitor, and survive the round trip. Read them off the
-    // failing snapshot: `boot` says how far startup got and when, `notes` says
-    // what broke. On a healthy load `boot` simply lists every milestone.
-    function stamp(name, value) {
-        try { document.documentElement.setAttribute('data-ruler-' + name, value); } catch (_) {}
-    }
-
+    const started = Date.now();
+    const root = document.documentElement;
+    const notes = [];
     window.SCREEN_RULER_TRACE = function (label) {
-        try {
-            var previous = document.documentElement.getAttribute('data-ruler-boot');
-            stamp('boot', (previous ? previous + ' ' : '') + label + '@' + (Date.now() - started));
-        } catch (_) {}
+        root.setAttribute('data-ruler-boot', ((root.getAttribute('data-ruler-boot') || '') + ' ' + label + '@' + (Date.now() - started)).trim());
     };
     window.SCREEN_RULER_TRACE('script');
-
-    function paint() {
-        if (!document.body) { setTimeout(paint, 50); return; }
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.id = 'screenRulerDiagnostics';
-            // Inline styles only: the utility classes come from a CDN that
-            // may itself be the thing that failed.
-            panel.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483647;' +
-                'overflow:auto;padding:16px;margin:0;background:#0a0a0a;color:#e5e5e5;' +
-                'font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;' +
-                'word-break:break-word;-webkit-user-select:text;user-select:text;';
-            document.body.appendChild(panel);
+    function note(message) {
+        notes.push(String(message));
+        root.setAttribute('data-ruler-notes', notes.join(' | ').slice(-2000));
+    }
+    function showFallback() {
+        root.removeAttribute('data-ruler-ready');
+        root.setAttribute('data-ruler-failed', 'true');
+        const message = document.getElementById('startupMessage');
+        if (message) {
+            message.hidden = false;
+            message.textContent = 'The interactive ruler could not load. Reload to retry, or use the guides above for calibration and measuring help.';
         }
-        panel.textContent = 'Screen Ruler could not start in this browser.\n\n' + notes.join('\n\n');
+        document.body?.classList.remove('ad-visible');
+        document.getElementById('bottomAdContainer')?.classList.add('hidden');
     }
-
-    // Recording is always safe; painting is not. A single missing resource must
-    // never cover a ruler that is drawing perfectly well, so only an uncaught
-    // exception paints on sight. Everything else is held until the watchdog
-    // confirms the app really did fail to start.
-    function note(text, showNow) {
-        if (notes.indexOf(text) === -1) notes.push(text);
-        // Recorded silently even when nothing is painted, so a failure that the
-        // watchdog decides not to show still leaves a trace in the snapshot.
-        stamp('notes', notes.join(' | ').replace(/\s+/g, ' ').slice(0, 2000));
-        if (showNow || panel) paint();
-    }
-
-    // Capture phase, because resource load failures do not bubble.
     window.addEventListener('error', function (event) {
-        var target = event.target;
+        const target = event.target;
         if (target && target !== window && (target.src || target.href)) {
-            note('Failed to load resource:\n  ' + (target.src || target.href), false);
+            note('Resource unavailable: ' + (target.src || target.href));
             return;
         }
-        note('Uncaught ' + (event.message || 'error') +
-             '\n  at ' + (event.filename || 'unknown') + ':' + event.lineno + ':' + event.colno, true);
+        note((event.message || 'Script error') + ' at ' + (event.filename || 'unknown'));
+        // Optional advertising failures must not cover a working measuring tool.
+        try {
+            const source = new URL(event.filename);
+            if (source.origin === new URL(document.baseURI).origin && source.pathname === '/app.js') showFallback();
+        } catch (_) { /* Opaque third-party errors have no source URL. */ }
     }, true);
-
     window.addEventListener('unhandledrejection', function (event) {
-        var reason = event.reason;
-        note('Unhandled promise rejection:\n  ' + ((reason && (reason.stack || reason.message)) || String(reason)), true);
+        note('Promise rejected: ' + (event.reason?.message || String(event.reason)));
     });
-
-    function probe(label, fn) {
-        try { return label + '=' + fn(); } catch (error) { return label + '=THREW ' + error; }
-    }
-
-    // If the canvas is still at its intrinsic 300x150 the app never booted,
-    // whether or not anything threw. Report the environment either way.
     setTimeout(function () {
-        var canvas = document.getElementById('rulerCanvas');
-        if (canvas && canvas.width > 300) return;
-        note('The ruler canvas was never sized, so startup did not complete.\n\n' + [
-            probe('readyState', function () { return document.readyState; }),
-            probe('canvas', function () { return canvas ? canvas.width + 'x' + canvas.height : 'MISSING'; }),
-            probe('tailwind', function () { return typeof window.tailwind; }),
-            probe('devicePresets', function () { return window.SCREEN_RULER_DEVICE_DATA ? window.SCREEN_RULER_DEVICE_DATA.presets.length + ' presets' : 'MISSING'; }),
-            probe('rulerConfig', function () { return window.SCREEN_RULER_CONFIG ? 'loaded' : 'MISSING'; }),
-            probe('safeStorage', function () { return typeof safeStorage; }),
-            probe('drawAll', function () { return typeof drawAll; }),
-            probe('bootRan', function () { return typeof hasBooted !== 'undefined' ? hasBooted : 'undefined'; }),
-            probe('localStorage', function () { window.localStorage.getItem('x'); return 'readable'; }),
-            probe('viewport', function () { return window.innerWidth + 'x' + window.innerHeight; }),
-            probe('screen', function () { return screen.width + 'x' + screen.height + ' dpr' + window.devicePixelRatio; }),
-            probe('framed', function () { return window.top !== window.self; }),
-            probe('origin', function () { return String(window.origin); }),
-            probe('ua', function () { return navigator.userAgent; }),
-        ].join('\n'), true);
-    }, 6000);
+        if (!root.hasAttribute('data-ruler-ready')) {
+            note('Startup has not completed');
+            showFallback();
+        }
+    }, 10000);
 })();

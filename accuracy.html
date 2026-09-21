@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accuracy and calibration — Screen Ruler</title>
+<meta name="description" content="Calibrate an on-screen ruler against a known length, check both axes, and understand what affects Screen Ruler's accuracy.">
+<link rel="canonical" href="https://screenruler.net/accuracy.html">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="site.css?v=20260921b">
+</head>
+<body class="guide-page">
+<header><a class="brand" href="index.html">← Screen Ruler</a><nav aria-label="Main navigation"><a href="how-to-use.html">How to use</a><a href="accuracy.html">Accuracy &amp; calibration</a><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></header>
+<main>
+<h1>Calibration is a check, not a promise</h1>
+<p class="lead">A browser knows about pixels. It does not reliably know how many millimetres those pixels occupy on your particular display.</p>
+<p>Screen Ruler turns a selected display size into a scale. Device presets, browser model hints and shared calibrations help choose that starting point. A physical reference is how you check whether the result matches the screen in front of you.</p>
+<section>
+<h2>Calibrate against a known length</h2>
+<ol>
+<li>Use the screen and browser settings you intend to measure with. Keep a desktop browser on one monitor and start at normal browser zoom.</li>
+<li>Choose your exact device if it is listed. Open the settings cog, select <strong>Calibrate</strong>, and find <strong>Ruler Scale</strong>.</li>
+<li>Place a physical ruler alongside the screen. Align the zero marks and compare a clearly visible length, such as 50 mm if it fits. Do not use an image of a ruler as the reference: its displayed size may also be wrong.</li>
+<li>Adjust the scale until the marks agree. Increasing the PPI value makes a given displayed length occupy more pixels. Decreasing it makes that length smaller.</li>
+<li>Check another length and the perpendicular axis. Rotate the device if you plan to use it that way and check again.</li>
+</ol>
+<figure><img src="guides/calibration.svg" width="720" height="350" alt="Screen marks and physical ruler marks aligned at zero and 50 millimetres, with a second check at 30 millimetres."><figcaption>Align zero, match a known span, then check a different span. This illustration is schematic and must not itself be used as a ruler.</figcaption></figure>
+<p>The Credit Card Outline in Calibrate provides another alignment aid, but use an object whose actual dimensions you know. Do not assume every card, badge or cut-down card has the same dimensions.</p>
+</section>
+<section>
+<h2>Read precision and physical accuracy are different</h2>
+<p>A readout can show a fraction or decimal more finely than you can position a handle. Rounded corners, edge shadows, glass thickness, touch movement and pixel spacing all affect where an edge appears to be.</p>
+<p>A useful check is to compare the reading with a known length and calculate the relative difference:</p>
+<p class="note"><strong>Relative difference = |reading − known length| ÷ known length × 100%</strong></p>
+<p>For a hypothetical example, a reading of 51 mm against a known 50 mm span differs by 1 mm, or 2%. That is an illustration of the calculation, not a measured accuracy result for this site. Repeating the check at several lengths helps distinguish a scale mismatch from inconsistent alignment.</p>
+<p>Screen Ruler has no published device-by-device accuracy certification or universal error bound. Use a suitable physical ruler, calipers or level when the required tolerance matters. An apparently precise number on the screen does not establish that tolerance.</p>
+</section>
+<section>
+<h2>When to check again</h2>
+<ul>
+<li><strong>Browser zoom or display scaling changes:</strong> the relationship between browser coordinates and physical pixels may change.</li>
+<li><strong>A different screen or device:</strong> a saved scale belongs to the setup you calibrated, even if the browser copies settings to another device.</li>
+<li><strong>Rotation or fullscreen changes:</strong> confirm the marks still match after changing the viewing mode you intend to use.</li>
+<li><strong>A different browser or cleared site storage:</strong> the previous calibration may no longer be available.</li>
+<li><strong>A case or support change when using the level:</strong> the phone may now sit at a different angle.</li>
+</ul>
+</section>
+<section>
+<h2>What is saved, and what is shared?</h2>
+<p>Calibration settings are stored locally when the browser permits storage. Choosing <strong>Share calibration</strong> sends the displayed device model and custom dimensions to the shared calibration service. Sharing is optional, and a community result needs the same reference check as a built-in preset. See <a href="privacy.html">Privacy</a> for the data involved.</p>
+<p><a href="index.html">Open the ruler and calibrate</a> · <a href="how-to-use.html">Learn the measuring tools</a></p>
+</section>
+</main>
+<footer>Screen Ruler · Made by Geoffrey Bromilow<nav aria-label="Main navigation"><a href="how-to-use.html">How to use</a><a href="accuracy.html">Accuracy &amp; calibration</a><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></footer>
+</body>
+</html>

@@ -4,12 +4,13 @@ ScreenRuler.net is a small, offline-first browser ruler with a background grid, 
 
 ## Use it locally
 
-This is a static site. Open `index.html` in a modern browser, or serve this folder with any static web server. The normal hosted build needs only these public files:
+This is a static site. Run `npm ci`, `npm run build:css`, then `node tests/server.cjs` and open `http://127.0.0.1:4173`. The development server replaces the production absolute base URL so scripts and links stay local. Production keeps the absolute base for previewers that embed the page as iframe srcdoc.
 
-- `index.html`
-- `about.html`
-- `device-presets.js`
-- `ruler-config.js`
+Tailwind 3 is compiled into the committed `styles.css`; there is no runtime CSS CDN dependency. Rebuild it after changing utility classes in HTML or JavaScript. `site.css` styles the introduction and standalone guides. Public files include the root HTML/JS/CSS files, `guides/*.svg`, `favicon.svg`, `ads.txt`, `robots.txt` and `sitemap.xml`.
+
+Run `npm test` with Chrome installed to check fresh desktop/phone sessions, calibration, ad sizing, blocked resources, third-party errors, no JavaScript and slow startup. External services are intercepted in the tests; tests do not generate live ad traffic.
+
+The HostGator workflow builds CSS before uploading public files and excludes source tooling, tests and server-side functions. The introduction and guides contain normal HTML; advertising is requested only after the ruler is ready and the calibration dialog is closed. Startup failures leave the guide navigation available.
 
 The optional Supabase Edge Functions in `supabase/functions/` provide the shared calibration templates and MobileAPI fallback. They require server-side environment variables and should be deployed separately.
 

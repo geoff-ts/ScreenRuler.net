@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 350" font-family="system-ui, sans-serif" font-size="18">
+<rect width="720" height="350" rx="14" fill="#14221e"/><text x="36" y="40" fill="#fff" font-size="22">Width and height are separate readings</text><rect x="170" y="110" width="350" height="160" rx="6" fill="#37443f"/><text x="270" y="196" fill="#d1d5db">Object to compare</text>
+<path d="M170 70v240 M520 70v240 M110 110h460 M110 270h460" stroke="#63736b" stroke-dasharray="5 5"/>
+<path d="M170 84h350 M170 76v16 M520 76v16" stroke="#6ee7b7" stroke-width="2"/><text x="314" y="74" fill="#6ee7b7">Width</text>
+<path d="M595 110v160 M587 110h16 M587 270h16" stroke="#fbbf24" stroke-width="2"/><text x="608" y="196" fill="#fbbf24">Height</text>
+<circle cx="170" cy="110" r="12" fill="#34d399"/><circle cx="520" cy="270" r="12" fill="#fbbf24"/><text x="128" y="108" fill="#6ee7b7">A</text><text x="538" y="282" fill="#fbbf24">B</text><text x="36" y="328" fill="#bccac5" font-size="16">Align the guides with the edges • Keep the object square to the grid</text>
+</svg>

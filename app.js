@@ -54,6 +54,8 @@
         let lastSelectedDeviceName = '';
         let hasSessionDeviceNameEdit = false;
         let hasSessionRulerScaleEdit = false;
+        let calibrationTouched = false;
+        let calibrationReturnFocus = null;
         let communityTemplateSearchSequence = 0;
         const communityTemplateSearchCache = new Map();
 
@@ -528,10 +530,15 @@
         let hasBooted = false;
         function bootApp() {
             if (hasBooted) return;
+            const styles = getComputedStyle(document.documentElement);
+            if (styles.getPropertyValue('--ruler-styles-ready').trim() !== '1' ||
+                styles.getPropertyValue('--ruler-content-styles-ready').trim() !== '1') {
+                document.getElementById('startupMessage').textContent = 'The measuring interface could not load its styles. Reload to retry, or use the guides above.';
+                return;
+            }
             hasBooted = true;
             trace('boot');
             syncAdPreferenceUI();
-            initializeBottomAd();
             initSearchDropdowns();
             initBubbleLevel();
             initBigRuler();
@@ -552,6 +559,12 @@
             updateDisplayValues();
             drawAll();
             trace('firstdraw:' + canvas.width + 'x' + canvas.height);
+            document.documentElement.removeAttribute('data-ruler-failed');
+            document.documentElement.setAttribute('data-ruler-ready', 'true');
+            document.getElementById('startupMessage').hidden = true;
+            // The first visit starts with a usable ruler, not a modal.
+            if (!areControlsHidden) toggleControls();
+            window.requestAnimationFrame(initializeBottomAd);
 
             detectDeviceProfile().finally(async () => {
                 updateOnboardingBubbleLevelControl();
@@ -560,6 +573,9 @@
                 updateDisplayValues();
                 drawAll();
                 trace('calibrated');
+            }).catch(error => {
+                trace('calibration-unavailable');
+                console.warn('Automatic calibration unavailable; manual calibration is still available.', error);
             });
 
             window.addEventListener('resize', () => {
@@ -601,7 +617,7 @@
 
                 if (!areControlsHidden && !interactionStartedInSettingsCard &&
                     settingsCard && !settingsCard.contains(e.target) && 
-                    !e.target.closest('#onboardingModal') &&
+                    !e.target.closest('#onboardingModal, #siteIntro, #showSiteIntro') &&
                     !listDevice.contains(e.target) &&
                     readoutPanel && !readoutPanel.contains(e.target) && 
                     toggleControlsBtn && !toggleControlsBtn.contains(e.target) &&
@@ -615,11 +631,13 @@
             // Double tap canvas workspace toggles control board seamlessly
             let lastTap = 0;
             const handleDblTaps = (e) => {
+                if (e.target.closest('#siteIntro, #showSiteIntro, a, summary')) return;
                 if (!e.target.closest('button') && !e.target.closest('#settingsCard') && !e.target.closest('#readoutPanel') && !e.target.closest('#onboardingModal') && !e.target.closest('#deviceDropdownList')) {
                     toggleControls();
                 }
             };
             document.addEventListener('touchend', (e) => {
+                if (e.target.closest('#siteIntro, #showSiteIntro, a, summary')) return;
                 if (ignoreNextClick) return; 
                 let now = new Date().getTime();
                 if (now - lastTap < 300 && now - lastTap > 0) {
@@ -637,8 +655,7 @@
             bootApp();
         }
 
-        // `load` is now only a backstop, plus a second pass at the measurements
-        // the Tailwind CDN can invalidate by injecting its styles asynchronously.
+        // Load provides a backstop if a local stylesheet arrived after DOM ready.
         window.addEventListener('load', () => {
             bootApp();
             resizeCanvas();
@@ -648,6 +665,7 @@
         });
 
         async function checkFirstTimeOnboarding() {
+            if (calibrationTouched) return;
             const savedPpi = safeStorage.local.getItem('calibrated_ruler_ppi');
             const savedDiag = safeStorage.local.getItem('calibrated_ruler_diagonal');
             const savedPresetName = safeStorage.local.getItem('calibrated_ruler_presetName');
@@ -700,6 +718,7 @@
                     handleOnboardSelect(guess.name);
                 } else {
                     const template = await lookupCalibrationTemplate();
+                    if (calibrationTouched) return;
                     if (template) {
                         applyCalibrationTemplate(template);
                     } else {
@@ -713,9 +732,7 @@
                 }
                 updateCustomInputsUI();
 
-                const modal = document.getElementById('onboardingModal');
-                modal.classList.remove('opacity-0', 'pointer-events-none');
-                checkMobileApiCreditAvailability();
+                // Setup is available from Choose device; never interrupt measuring.
             }
         }
 
@@ -1011,6 +1028,7 @@
         }
 
         function handleDeviceSearchInput(value) {
+            calibrationTouched = true;
             const typedAlias = String(value || '').trim();
             if (isUsefulCalibrationModel(typedAlias)) {
                 hasSessionDeviceNameEdit = true;
@@ -1067,6 +1085,7 @@
 
         // Custom Sizing Dimension Inputs Logic
         function updateCustomMetric(metric, value) {
+            calibrationTouched = true;
             const parsed = parseFloat(value);
             if (isNaN(parsed) || parsed <= 0) return;
             hasSessionRulerScaleEdit = true;
@@ -1134,7 +1153,52 @@
             updateCalibrationTemplateSaveControl();
         }
 
+        function enterMeasuringMode() {
+            document.documentElement.setAttribute('data-measuring-mode', 'true');
+            if (!areControlsHidden) toggleControls();
+            document.getElementById('showSiteIntro').focus();
+        }
+
+        function leaveMeasuringMode() {
+            if (!areControlsHidden) toggleControls();
+            document.documentElement.removeAttribute('data-measuring-mode');
+            document.querySelector('#siteIntro button').focus();
+        }
+
+        function openCalibrationSetup() {
+            calibrationTouched = true;
+            calibrationReturnFocus = document.activeElement;
+            if (!document.getElementById('onboardSearchInput').value && PRESETS.some(p => p.name === activePresetName)) {
+                document.getElementById('onboardSearchInput').value = activePresetName;
+            }
+            document.getElementById('onboardingModal').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('onboardingModal').setAttribute('aria-hidden', 'false');
+            initializeBottomAd();
+            document.getElementById('onboardSearchInput').focus();
+            checkMobileApiCreditAvailability();
+        }
+
+        function closeCalibrationSetup() {
+            document.getElementById('onboardingModal').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('onboardingModal').setAttribute('aria-hidden', 'true');
+            initializeBottomAd();
+            calibrationReturnFocus?.focus();
+        }
+
+        document.addEventListener('keydown', event => {
+            const modal = document.getElementById('onboardingModal');
+            if (modal.classList.contains('opacity-0')) return;
+            if (event.key === 'Escape') closeCalibrationSetup();
+            if (event.key === 'Tab') {
+                const controls = [...modal.querySelectorAll('button, input, a[href]')].filter(el => !el.disabled && el.getClientRects().length);
+                const first = controls[0], last = controls[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }
+        });
+
         function confirmOnboarding(openCalibrateTab = false) {
+            calibrationTouched = true;
             const choice = document.getElementById('onboardSearchInput').value;
             const preserveOnlineMatch = onboardingOnlineMatchApplied || onboardingTemplateMatchApplied;
             if (!preserveOnlineMatch) {
@@ -1171,10 +1235,12 @@
             safeStorage.local.setItem('calibrated_ruler_diagonal', diagonal);
             safeStorage.local.setItem('calibrated_ruler_presetName', activePresetName);
 
-            document.getElementById('onboardingModal').classList.add('opacity-0', 'pointer-events-none');
+            closeCalibrationSetup();
             
             applySavedMetrics();
             if (openCalibrateTab) {
+                enterMeasuringMode();
+                if (areControlsHidden) toggleControls();
                 setTab('calibrate');
                 showToast("Open the Calibrate tab to fine-tune the ruler.");
             } else {
@@ -1201,6 +1267,7 @@
         }
 
         function applyPreset(name) {
+            calibrationTouched = true;
             if (name === "CUSTOM_DEVICE" || name === "Custom Override Selection") {
                 hasSessionDeviceNameEdit = true;
                 checkPresetMatch("CUSTOM_DEVICE");
@@ -1230,6 +1297,7 @@
         }
 
         function updateDiagonalFromSlider(val) {
+            calibrationTouched = true;
             hasSessionRulerScaleEdit = true;
             diagonal = parseFloat(val);
             customDiagonal = diagonal;
@@ -1256,6 +1324,7 @@
         }
 
         function updateFromMicroSlider(val) {
+            calibrationTouched = true;
             hasSessionRulerScaleEdit = true;
             ppi = parseFloat(val);
             document.getElementById('microScaleDisplay').value = Math.round(ppi);
@@ -1758,6 +1827,7 @@
 
         function toggleControls() {
             areControlsHidden = !areControlsHidden;
+            if (!areControlsHidden) document.documentElement.setAttribute('data-measuring-mode', 'true');
             const card = document.getElementById('settingsCard');
             const readoutPanel = document.getElementById('readoutPanel');
             const greeting = document.getElementById('greetingContainer');
@@ -2027,6 +2097,16 @@
         }
 
         function initializeBottomAd() {
+            const adContainer = document.getElementById('bottomAdContainer');
+            const modal = document.getElementById('onboardingModal');
+            const contentReady = document.documentElement.hasAttribute('data-ruler-ready');
+            const setupOpen = !modal.classList.contains('opacity-0');
+            if (!contentReady || setupOpen || adContainer.dataset.loadFailed === 'true' || document.documentElement.hasAttribute('data-ruler-failed')) {
+                adContainer.classList.add('hidden');
+                document.body.classList.remove('ad-visible');
+                if (contentReady) syncRulerAdSpace();
+                return;
+            }
             const config = window.SCREEN_RULER_CONFIG || {};
             const client = config.adsenseClient;
             const slot = config.bottomAdSlot;
@@ -2034,7 +2114,6 @@
 
             if (!hasAdSenseIds || safeStorage.session.getItem(AD_DISMISSED_SESSION_KEY) === 'true') return;
 
-            const adContainer = document.getElementById('bottomAdContainer');
             const adSlot = document.getElementById('bottomAdSlot');
             if (isAdsDisabled()) {
                 adContainer.classList.add('hidden');
@@ -2065,8 +2144,26 @@
             adContainer.dataset.initialized = 'true';
 
             try {
+                if (!document.getElementById('adsenseScript')) {
+                    const script = document.createElement('script');
+                    script.id = 'adsenseScript';
+                    script.async = true;
+                    script.crossOrigin = 'anonymous';
+                    script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(client);
+                    script.onerror = () => {
+                        adContainer.dataset.loadFailed = 'true';
+                        adContainer.classList.add('hidden');
+                        document.body.classList.remove('ad-visible');
+                        syncRulerAdSpace();
+                    };
+                    document.head.appendChild(script);
+                }
                 (window.adsbygoogle = window.adsbygoogle || []).push({});
             } catch (error) {
+                adContainer.dataset.loadFailed = 'true';
+                adContainer.classList.add('hidden');
+                document.body.classList.remove('ad-visible');
+                syncRulerAdSpace();
                 console.warn('Unable to initialize the bottom ad.', error);
             }
         }

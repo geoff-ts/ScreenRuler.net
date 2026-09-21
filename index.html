@@ -10,24 +10,24 @@
     <meta name="google-adsense-account" content="ca-pub-4844506276858974">
     <title>Screen Ruler — On-screen ruler, calipers and bubble level</title>
     <meta name="description" content="A free on-screen ruler for your phone or tablet. Calibrate to your exact display, then measure in millimetres or inches with draggable calipers, a protractor and a bubble level.">
-    <link rel="canonical" href="https://screenruler.net/index.html">
+    <link rel="canonical" href="https://screenruler.net/">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-    <!-- Every visible pixel of the ruler is painted by script, so an uncaught
-         error leaves nothing but a black rectangle and no clue as to the cause.
-         The environments where that happens - ad previewers, review crawlers,
-         locked-down embeds - are precisely the ones where a console cannot be
-         opened, so failures are reported on the page itself. This must stay the
-         first script on the page: it can only catch what it is installed before.
-         On a healthy load nothing here ever becomes visible. -->
-    <script src="diagnostics.js?v=20260813a"></script>
+    <!-- Record startup failures and preserve the readable HTML introduction. -->
+    <script src="diagnostics.js?v=20260921b"></script>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css?v=20260921b">
+    <link rel="stylesheet" href="site.css?v=20260921b">
     <script src="ruler-config.js?v=20260813a"></script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4844506276858974"
-         crossorigin="anonymous"></script>
+    <!-- Advertising is loaded only after the ruler is usable and setup is closed. -->
     <script src="device-presets.js?v=20260813a"></script>
     <style>
+        /* Essential fallback works even if external styles fail. */
+        html:not([data-ruler-ready]) body > :not(#siteIntro) { display: none !important; }
+        html:not([data-ruler-ready]), html:not([data-ruler-ready]) body { overflow: auto !important; height: auto !important; }
+        html:not([data-ruler-ready]) #siteIntro { display:block; position:relative; max-width:44rem; margin:2rem auto; padding:1.5rem; color:#e5e5e5; background:#111; font:16px/1.6 system-ui; touch-action:auto; }
+        html:not([data-ruler-ready]) #siteIntro a { color:#6ee7b7; text-decoration:underline; margin-right:1rem; }
+        html:not([data-ruler-ready]) .ruler-actions { display:none; }
         /* Overflow only reaches the viewport from the body while the root
            element is `visible`. Ad previewers re-serve this page inside an
            iframe and force `overflow: visible !important` onto the body so they
@@ -39,10 +39,10 @@
             overflow: hidden;
         }
         body, canvas {
-            touch-action: none;
             -webkit-user-select: none;
             user-select: none;
         }
+        canvas { touch-action: none; }
         /* Holds the last painted frame as a still image, directly beneath the
            live canvas that always covers it. See updateCanvasMirror(). */
         #rulerCanvasMirror {
@@ -380,41 +380,33 @@
 </head>
 <body class="h-full overflow-hidden bg-neutral-950 text-neutral-100 font-sans transition-colors duration-300">
 
-    <!-- Every visible pixel of this app is drawn by script, and the utility
-         classes come from a CDN that is itself script. Without JavaScript the
-         page would otherwise be a blank black rectangle, so the app chrome is
-         hidden and a plain description of the tool is shown in its place. -->
-    <noscript>
-        <style>
-            #rulerCanvas, #rulerCanvasMirror, #caliperGuideLayer, #caliperHandleLayer,
-            #bubbleLevelPanel, #appControlsOverlay, #onboardingModal,
-            #toggleControlsBtn, #toast { display: none !important; }
-            body { overflow: auto !important; background: #0a0a0a; color: #e5e5e5;
-                   font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-        </style>
-        <main style="max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem; line-height: 1.6;">
-            <h1 style="font-size: 1.75rem; margin: 0 0 0.5rem;">Screen Ruler</h1>
-            <p style="color: #a3a3a3; margin: 0 0 1.5rem;">
-                A free on-screen ruler, caliper set, protractor and bubble level that runs
-                in your phone or tablet browser. Nothing to install.
-            </p>
-            <p style="background: #171717; border: 1px solid #262626; border-radius: 0.75rem; padding: 1rem;">
-                <strong>JavaScript is required.</strong> The ruler is drawn live on a canvas and
-                scaled to your display, so it cannot be shown as a static image. Please enable
-                JavaScript and reload this page.
-            </p>
-            <h2 style="font-size: 1.15rem; margin: 2rem 0 0.5rem;">What it does</h2>
-            <ul style="color: #a3a3a3; padding-left: 1.25rem;">
-                <li>Calibrates to your exact screen using a built-in database of device sizes, a credit-card outline, or manual adjustment.</li>
-                <li>Measures with two draggable calipers, reading out in millimetres and inches at once.</li>
-                <li>Shows a protractor for angles and a bubble level that uses the device's motion sensors.</li>
-                <li>Remembers your calibration on this device, so it is ready the next time you open it.</li>
-            </ul>
-            <p style="margin-top: 2rem;">
-                <a href="about.html" style="color: #34d399;">About Screen Ruler and how it works &rarr;</a>
-            </p>
-        </main>
-    </noscript>
+    <main id="siteIntro" aria-labelledby="siteTitle">
+        <h1 id="siteTitle">Screen Ruler</h1>
+        <p>A ruler, calipers, protractor and bubble level for the screen in your hand.</p>
+        <p id="scaleNotice"><strong>Approximate scale.</strong> Match a known length before measuring real objects.</p>
+        <nav aria-label="Screen Ruler navigation">
+            <a href="how-to-use.html">How to use</a>
+            <a href="accuracy.html">Accuracy &amp; calibration</a>
+            <a href="about.html">About</a>
+            <a href="privacy.html">Privacy</a>
+            <a href="contact.html">Contact</a>
+        </nav>
+        <div class="ruler-actions">
+            <button type="button" onclick="openCalibrationSetup()">Choose device</button>
+            <button type="button" onclick="enterMeasuringMode()">Measure fullscreen</button>
+        </div>
+        <details class="quick-guide">
+            <summary>Quick start</summary>
+            <ol>
+                <li>Open Calibrate in settings and select your device or adjust the scale against a physical ruler.</li>
+                <li>Drag the green and amber calipers to the two edges you want to compare.</li>
+                <li>Read the horizontal and vertical distances separately. Use Tools for angles or the bubble level.</li>
+            </ol>
+            <p>Recheck calibration after changing browser zoom, display settings or device. On-screen numbers are not a guarantee of physical accuracy.</p>
+        </details>
+        <p id="startupMessage" role="status">The interactive ruler needs JavaScript. The guides above work without it.</p>
+    </main>
+    <button id="showSiteIntro" type="button" onclick="leaveMeasuringMode()">Help &amp; calibration</button>
 
     <!-- Ad previewers and review crawlers do not screenshot this page. They load
          it, serialise the resulting DOM to a string, and screenshot that string
@@ -509,12 +501,7 @@ Y +0°</span>
                 </div>
             </div>
 
-            <div class="pointer-events-auto flex flex-col items-end gap-2 transition-all duration-300" id="greetingContainer">
-                <a href="about.html" class="bg-neutral-900/90 border border-neutral-800 text-neutral-300 text-xs px-3 py-2 rounded-xl backdrop-blur-md shadow-lg text-right transition-colors hover:border-emerald-500/60 hover:bg-neutral-800" title="More information and ways to support the developer">
-                    <span class="font-bold block text-emerald-400">More info</span>
-                    <span class="opacity-80 text-[10px]">Support the dev &rarr;</span>
-                </a>
-            </div>
+            <div id="greetingContainer" class="hidden"></div>
         </div>
 
         <!-- Settings Cards Drawer -->
@@ -732,7 +719,7 @@ Y +0°</span>
     <!-- Keep AdSense's publisher and slot IDs in the initial document. Review
          crawlers can then discover the ad even if their JavaScript environment
          is restricted; app.js still manages the visit-level opt-out. -->
-    <aside id="bottomAdContainer" class="fixed pointer-events-auto" aria-label="Advertisement">
+    <aside id="bottomAdContainer" class="fixed hidden pointer-events-auto" aria-label="Advertisement">
         <div class="rounded-lg border border-neutral-700/70 bg-neutral-900/95 px-1 py-0.5 text-center shadow-xl">
             <div class="pointer-events-none mb-0.5 text-[9px] font-medium uppercase tracking-widest text-neutral-500">Advertisement</div>
             <ins id="bottomAdSlot" class="adsbygoogle screen-ruler-ad"
@@ -743,10 +730,11 @@ Y +0°</span>
     </aside>
 
     <!-- FIRST TIME USER ONBOARDING MODAL -->
-    <div id="onboardingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="onboardingModal" role="dialog" aria-modal="true" aria-labelledby="calibrationTitle" aria-hidden="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl">
             <div class="space-y-1">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <button type="button" onclick="closeCalibrationSetup()" class="float-right text-sm underline">Close</button>
+                <h3 id="calibrationTitle" class="text-lg font-bold text-white flex items-center gap-2">
                     <span class="text-emerald-400">📏</span> Calibrate Your Ruler
                 </h3>
                 <p class="text-xs text-neutral-400 leading-relaxed" id="bestGuessExplanation">
@@ -756,7 +744,7 @@ Y +0°</span>
 
             <div class="space-y-4">
                 <div class="relative">
-                    <label class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Select Your Current Device</label>
+                    <label for="onboardSearchInput" class="block text-xs font-bold uppercase text-neutral-400 mb-1.5">Select Your Current Device</label>
                     <div class="relative">
                         <input type="text" id="onboardSearchInput" placeholder="Search device preset..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-3 text-sm text-neutral-200 outline-none focus:border-emerald-500 transition-all" onfocus="showOnboardDropdown(true)" oninput="filterOnboardPresets(this.value)">
                         <div id="onboardDropdownList" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl z-50"></div>
@@ -782,8 +770,7 @@ Y +0°</span>
                 <button onclick="confirmOnboarding()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm py-3 rounded-xl transition-all shadow-lg shadow-emerald-900/20">
                     Done
                 </button>
-                    </div>
-                </div>
+            </div>
 
                 <div id="onboardBubbleLevelToggleRow" class="hidden items-center justify-between border-t border-neutral-800/50 pt-3">
                     <span class="text-xs font-bold uppercase text-neutral-400">Bubble Level</span>
@@ -794,6 +781,7 @@ Y +0°</span>
                 </div>
             </div>
 
+        </div>
     <!-- Notification Toast -->
     <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-xl opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-2xl flex items-center space-x-2 text-xs font-semibold">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -856,6 +844,6 @@ Y +0°</span>
         </div>
     </div>
 
-    <script src="app.js?v=20260813a"></script>
+    <script src="app.js?v=20260921b"></script>
 </body>
 </html>

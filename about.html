@@ -1,47 +1,30 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>About — Screen Ruler</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About Screen Ruler — Screen Ruler</title>
+<meta name="description" content="Why Geoffrey Bromilow built Screen Ruler and how its on-screen measuring tools work.">
+<link rel="canonical" href="https://screenruler.net/about.html">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="site.css?v=20260921b">
 </head>
-<body class="min-h-full bg-black text-neutral-200 antialiased">
-    <main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-12">
-        <a href="index.html" class="mb-10 inline-flex w-fit items-center gap-2 text-sm font-semibold text-emerald-400 transition-colors hover:text-emerald-300">
-            <span aria-hidden="true">&larr;</span> Back to Screen Ruler
-        </a>
-
-        <section class="rounded-3xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-2xl sm:p-9">
-            <p class="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">Screen Ruler</p>
-            <h1 class="mb-8 text-3xl font-bold text-white">More info &amp; support the dev</h1>
-
-            <div class="space-y-8 leading-relaxed text-neutral-300">
-                <section>
-                    <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-white">Why I made it</h2>
-                    <p>I’m a woodworker and a coder and I can't ever seem to find a ruler outside my workshop. So I made one, Screen Ruler is a straightforward ruler, some roughly accurate calipers, a perfectly cromulent protractor, and a Bubble Level I'm actually rather proud of. The big thing is the ruler that can be calibrated against the screen already in your hand.</p>
-                </section>
-
-                <section>
-                    <h2 class="mb-3 text-sm font-bold uppercase tracking-wide text-white">Find me online</h2>
-                    <div class="flex flex-wrap gap-3">
-                        <a class="rounded-xl border border-neutral-700 bg-neutral-800/70 px-4 py-2 text-sm font-semibold text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-neutral-800 hover:text-emerald-300" href="https://www.linkedin.com/in/geoffrey-bromilow-671a7214a/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-                        <a class="rounded-xl border border-neutral-700 bg-neutral-800/70 px-4 py-2 text-sm font-semibold text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-neutral-800 hover:text-emerald-300" href="https://github.com/geoff-ts" target="_blank" rel="noopener noreferrer">GitHub</a>
-                    </div>
-                </section>
-
-                <section>
-                    <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-white">Privacy &amp; planned ads</h2>
-                    <p>Screen Ruler does not collect personal information: it does not ask for your name, email address, account, contacts or precise location, and its calibration preferences stay in your browser. If you choose the optional Online Device Match, the browser-provided device model hint and screen dimensions are sent to the matching service solely to identify the screen. If you explicitly save a device calibration, its model name or model code, display dimensions and adjusted scale are added to the shared calibration database; no account or contact information is attached. A short-lived one-way rate-limit token derived from the connection protects that database from spam. A small Google ad banner may appear at the bottom to help pay for the site. Google and its advertising partners may use cookies, IP addresses or similar identifiers for ad delivery and measurement; Google explains those practices in its <a class="text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300" href="https://policies.google.com/technologies/ads">advertising privacy information</a>. Hold the settings button for five seconds to hide the banner for the rest of your visit.</p>
-                </section>
-
-                <section>
-                    <h2 class="mb-2 text-sm font-bold uppercase tracking-wide text-white">How it works</h2>
-                    <p>Screen Ruler turns the screen’s pixel dimensions and a selected display diagonal into a calibrated scale. Its local phone presets are curated from openly licensed device-specification data, including the <a class="text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300" href="https://www.kaggle.com/datasets/rajibdab/global-smartphone-database-2025">Global Smartphone Database 2025</a>, alongside public manufacturer specifications and model-code aliases. It tries the model hint supplied by your browser first; if the local presets do not identify it, it can try a compatible shared calibration template before the optional MobileAPI third-party fallback. You can always select a device or calibrate manually instead.</p>
-                </section>
-            </div>
-        </section>
-    </main>
+<body class="guide-page">
+<header><a class="brand" href="index.html">← Screen Ruler</a><nav aria-label="Main navigation"><a href="how-to-use.html">How to use</a><a href="accuracy.html">Accuracy &amp; calibration</a><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></header>
+<main>
+<h1>A ruler for when the workshop is elsewhere</h1>
+<p class="lead">I’m a woodworker and a coder, and I can’t ever seem to find a ruler outside my workshop. So I made Screen Ruler.</p>
+<p>The idea is straightforward: use the screen already in your hand to compare a small length, position a pair of calipers, check an angle or get a sense of level. The useful part is being able to calibrate the ruler to your own screen instead of trusting a generic picture of one.</p>
+<h2>What the site does</h2>
+<p>The on-screen ruler and calipers convert browser pixel distances into millimetres or inches using your chosen scale. The protractor compares the directions of two arms. The bubble level uses the device's orientation sensors where supported. Camera-based Big Ruler is a separate experimental feature for compatible WebXR devices.</p>
+<p>These tools are convenient checks, with limitations that depend on the device and how you position it. Read <a href="accuracy.html">Accuracy &amp; calibration</a> before treating a screen reading as a physical measurement, and follow the <a href="how-to-use.html">illustrated guide</a> to get started.</p>
+<h2>Device information</h2>
+<p>The local phone presets draw on device-specification data, including the <a href="https://www.kaggle.com/datasets/rajibdab/global-smartphone-database-2025">Global Smartphone Database 2025</a>, public manufacturer specifications and model-code aliases. Browser model hints and optional shared calibration templates can help select a starting scale. You can always calibrate manually.</p>
+<h2>Made by Geoffrey Bromilow</h2>
+<p>Find me on <a href="https://www.linkedin.com/in/geoffrey-bromilow-671a7214a/">LinkedIn</a> or <a href="https://github.com/geoff-ts">GitHub</a>. The <a href="contact.html">Contact page</a> explains what to include when reporting a problem.</p>
+<p>A small ad banner helps support the site. See <a href="privacy.html">Privacy</a> for information about advertising, local preferences and optional online services.</p>
+<p><a href="index.html">Open Screen Ruler</a></p>
+</main>
+<footer>Screen Ruler · Made by Geoffrey Bromilow<nav aria-label="Main navigation"><a href="how-to-use.html">How to use</a><a href="accuracy.html">Accuracy &amp; calibration</a><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></footer>
 </body>
 </html>

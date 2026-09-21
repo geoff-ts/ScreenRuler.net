@@ -1,0 +1,12 @@
+{
+  "name": "screenruler-net",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/styles.css -o ./styles.css --minify",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "tailwindcss": "3.4.17"
+  }
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 350" font-family="system-ui, sans-serif" font-size="18">
+<rect x="1" y="1" width="718" height="348" rx="14" fill="#14221e"/><text x="36" y="40" fill="#fff" font-size="22">Check the scale against a physical ruler</text>
+<text x="36" y="89" fill="#6ee7b7">On screen</text><path d="M85 120H635 M85 100v35 M195 110v25 M305 110v25 M415 100v35 M525 110v25 M635 100v35" stroke="#6ee7b7" stroke-width="3"/>
+<g fill="#d1fae5"><text x="80" y="162">0</text><text x="401" y="162">30</text><text x="620" y="162">50</text></g>
+<text x="36" y="205" fill="#fcd34d">Physical ruler</text><rect x="64" y="223" width="595" height="75" rx="4" fill="#c9ab72"/><path d="M85 224v28 M195 224v17 M305 224v17 M415 224v28 M525 224v17 M635 224v28" stroke="#241e13" stroke-width="3"/>
+<g fill="#241e13"><text x="80" y="281">0</text><text x="401" y="281">30</text><text x="620" y="281">50</text></g><path d="M85 178v40 M415 178v40 M635 178v40" stroke="#9ca3af" stroke-dasharray="4 5"/><text x="36" y="329" fill="#bccac5" font-size="16">Illustration only • Compare more than one length and both axes</text>
+</svg>

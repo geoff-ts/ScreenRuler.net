@@ -1,0 +1,50 @@
+:root { color-scheme: dark; --ruler-content-styles-ready: 1; }
+#siteIntro, #showSiteIntro, .guide-page { font-family: system-ui, sans-serif; }
+#siteIntro { color: #eee; background: #171717; border: 1px solid #404040; border-radius: 16px; padding: 18px; line-height: 1.5; touch-action: auto; user-select: text; -webkit-user-select: text; }
+#siteIntro h1 { font-size: 22px; font-weight: 750; margin: 0 0 6px; }
+#siteIntro p { margin: 8px 0; }
+#siteIntro nav { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 13px; margin: 12px 0; }
+#siteIntro a, .guide-page a { color: #6ee7b7; text-decoration: underline; text-underline-offset: 3px; }
+#scaleNotice { font-size: 13px; color: #fcd34d; }
+.ruler-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+.ruler-actions button, #showSiteIntro { border: 1px solid #525252; border-radius: 9px; background: #262626; color: #fff; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+.ruler-actions button:last-child { background: #065f46; border-color: #10b981; }
+.quick-guide { font-size: 13px; }
+.quick-guide summary { cursor: pointer; padding: 4px 0; }
+.quick-guide ol { list-style: decimal; padding-left: 20px; }
+.quick-guide li { margin: 8px 0; }
+[data-ruler-ready] #siteIntro { position: fixed; z-index: 45; top: max(20px, env(safe-area-inset-top)); right: 20px; width: 370px; max-width: calc(100% - 40px); max-height: calc(100dvh - 130px); overflow: auto; overscroll-behavior: contain; box-shadow: 0 12px 40px #0008; }
+#showSiteIntro { display: none; position: fixed; z-index: 45; top: max(16px, env(safe-area-inset-top)); right: 16px; }
+[data-ruler-ready][data-measuring-mode] #siteIntro { display: none; }
+[data-ruler-ready][data-measuring-mode] #showSiteIntro { display: block; }
+body.ar-active #siteIntro, body.ar-active #showSiteIntro { display: none !important; }
+body.ad-visible.ad-anchor-right #siteIntro, body.ad-visible.ad-anchor-right #showSiteIntro { right: 144px; max-width: calc(100% - 164px); }
+body.ad-visible.ad-anchor-top #siteIntro, body.ad-visible.ad-anchor-top #showSiteIntro { top: 94px; }
+#onboardingModal { overflow: auto; touch-action: auto; }
+#onboardingModal > div { max-height: calc(100dvh - 32px); overflow: auto; }
+#onboardingModal.opacity-0 { visibility: hidden; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 4px; }
+@media (max-width: 600px) {
+  [data-ruler-ready] #siteIntro { top: 14px; right: 14px; max-width: calc(100% - 28px); max-height: min(52dvh, 390px); padding: 14px; }
+  #siteIntro h1 { font-size: 20px; }
+  #siteIntro > p:first-of-type { font-size: 14px; }
+}
+.guide-page { margin: 0; background: #101313; color: #e5e7eb; line-height: 1.75; font-size: 17px; }
+.guide-page header, .guide-page main, .guide-page footer { width: min(100% - 40px, 780px); margin: auto; }
+.guide-page header { padding: 28px 0 22px; border-bottom: 1px solid #374141; }
+.guide-page .brand { font-size: 22px; font-weight: 750; text-decoration: none; color: #fff; }
+.guide-page nav { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; margin-top: 12px; }
+.guide-page main { padding: 40px 0 60px; }
+.guide-page h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.2; letter-spacing: -.025em; color: #fff; margin: 0 0 22px; }
+.guide-page h2 { font-size: 25px; color: #fff; line-height: 1.35; margin: 38px 0 14px; }
+.guide-page h3 { font-size: 19px; color: #fff; margin: 24px 0 8px; }
+.guide-page p { margin: 14px 0; }
+.guide-page ul, .guide-page ol { padding-left: 26px; }
+.guide-page li { margin: 10px 0; }
+.guide-page .lead { color: #bbc9c5; font-size: 20px; }
+.guide-page .note { padding: 16px 20px; background: #172b24; border-left: 3px solid #34d399; border-radius: 0 8px 8px 0; }
+.guide-page figure { margin: 28px 0; }
+.guide-page figure img { display: block; width: 100%; height: auto; border: 1px solid #374141; border-radius: 12px; }
+.guide-page figcaption { color: #abb7b3; font-size: 14px; margin-top: 10px; }
+.guide-page footer { padding: 22px 0 32px; border-top: 1px solid #374141; font-size: 14px; color: #abb7b3; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }

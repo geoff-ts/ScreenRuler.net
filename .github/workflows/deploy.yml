@@ -22,6 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:css
 
       # The FTP login is scoped to ScreenRuler.net's document root, so `./`
       # cannot access any other website or cPanel-managed directory.
@@ -49,3 +55,10 @@ jobs:
             LICENSE
             THIRD_PARTY_NOTICES.md
             package-lock.json
+            package.json
+            tailwind.config.cjs
+            playwright.config.cjs
+            **/src/**
+            **/tests/**
+            **/test-results/**
+            **/playwright-report/**
