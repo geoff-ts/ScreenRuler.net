@@ -729,12 +729,18 @@ Y +0°</span>
         </div>
     </div>
 
-    <!-- The ad is only created when both AdSense IDs are set in ruler-config.js. -->
-    <aside id="bottomAdContainer" class="fixed hidden pointer-events-auto" aria-label="Advertisement">
+    <!-- Keep AdSense's publisher and slot IDs in the initial document. Review
+         crawlers can then discover the ad even if their JavaScript environment
+         is restricted; app.js still manages the visit-level opt-out. -->
+    <aside id="bottomAdContainer" class="fixed pointer-events-auto" aria-label="Advertisement">
         <div class="rounded-lg border border-neutral-700/70 bg-neutral-900/95 px-1 py-0.5 text-center shadow-xl">
             <div class="pointer-events-none mb-0.5 text-[9px] font-medium uppercase tracking-widest text-neutral-500">Advertisement</div>
             <ins id="bottomAdSlot" class="adsbygoogle screen-ruler-ad"
-                 style="display:block"></ins>
+                 style="display:block"
+                 data-ad-client="ca-pub-4844506276858974"
+                 data-ad-slot="1113182365"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
         </div>
     </aside>
 
