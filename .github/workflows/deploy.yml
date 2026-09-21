@@ -1,0 +1,54 @@
+# Deploy the static Screen Ruler site whenever main is pushed to GitHub.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   FTP_SERVER   HostGator's FTPS hostname.
+#   FTP_USERNAME A dedicated FTP account restricted to
+#                public_html/website_8a8b8e02.
+#   FTP_PASSWORD The dedicated account's password.
+name: Deploy Screen Ruler to HostGator
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two file synchronisations against the live directory at once.
+concurrency:
+  group: screenruler-hostgator-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The FTP login is scoped to ScreenRuler.net's document root, so `./`
+      # cannot access any other website or cPanel-managed directory.
+      - name: Sync the published site to HostGator
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./
+          server-dir: ./
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            **/supabase/**
+            .gitattributes
+            .gitignore
+            .hintrc
+            README.md
+            LICENSE
+            THIRD_PARTY_NOTICES.md
+            package-lock.json
