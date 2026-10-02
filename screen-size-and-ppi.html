@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why a browser can't tell how big your screen is — Screen Ruler</title>
+<meta name="description" content="Screen size, resolution, pixel density (PPI), CSS pixels and device pixel ratio explained, with the arithmetic, and why every on-screen ruler has to be calibrated.">
+<link rel="canonical" href="https://screenruler.net/screen-size-and-ppi.html">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="site.css?v=20261002a">
+</head>
+<body class="guide-page">
+<header><a class="brand" href="index.html">← Screen Ruler</a><nav aria-label="Main navigation"><a href="how-to-use.html">How to use</a><a href="guides.html">Guides</a><a href="accuracy.html">Accuracy &amp; calibration</a><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></header>
+<main>
+<h1>Why a browser can't tell how big your screen is</h1>
+<p class="lead">A web page can count pixels precisely, but it has no reliable way to learn how many millimetres those pixels cover. That gap is the whole reason an on-screen ruler needs calibrating.</p>
+<p class="byline">By Geoffrey Bromilow · Last updated 2 October 2026</p>
+<nav aria-label="On this page"><a href="#terms">The terms</a><a href="#ppi">Working out PPI</a><a href="#css">CSS pixels</a><a href="#unknown">What the browser doesn't know</a><a href="#approach">How Screen Ruler copes</a></nav>
+<section id="terms">
+<h2>Four numbers that get confused</h2>
+<dl>
+<dt>Resolution</dt><dd>How many physical pixels the panel has across and down, such as 1080 × 2400. It says nothing about size on its own: a phone and a television can share a resolution.</dd>
+<dt>Diagonal</dt><dd>The corner-to-corner length of the visible display, in inches. Manufacturers usually round it, often to one decimal place, and on phones with rounded corners it is measured as if the corners were square.</dd>
+<dt>Pixel density (PPI)</dt><dd>Pixels per inch along a line on the panel. This is the number a ruler needs, because it converts a count of pixels into a physical length.</dd>
+<dt>Device pixel ratio</dt><dd>How many physical pixels the browser uses for each of its own CSS pixels. Modern phones typically report 2, 2.625, 3 or similar.</dd>
+</dl>
+</section>
+<section id="ppi">
+<h2>Working out PPI from a spec sheet</h2>
+<p>If you know the resolution and the diagonal, Pythagoras gives you the diagonal in pixels, and dividing by the diagonal in inches gives the density:</p>
+<p class="formula">PPI = √(width² + height²) ÷ diagonal</p>
+<p>For a 6.1-inch phone with a 2532 × 1170 panel, the diagonal is √(2532² + 1170²) ≈ 2789 pixels, and 2789 ÷ 6.1 ≈ 457 PPI. For a 6.5-inch 1080 × 2400 phone it is roughly 405 PPI. A 24-inch 1920 × 1080 desktop monitor works out to about 92 PPI, which is why a desktop ruler with the wrong assumptions can be wildly off.</p>
+<p>That calculation is only as good as its inputs. A diagonal rounded from 6.06 to 6.1 inches shifts the answer by about 0.7%, which is 0.7 mm across 100 mm. Most of the time that is fine. When it is not, the fix is to compare the ruler with a physical one, as described in the <a href="accuracy.html">calibration guide</a>.</p>
+</section>
+<section id="css">
+<h2>CSS pixels and the "96 per inch" rule</h2>
+<p>Web pages are not laid out in physical pixels. They use CSS pixels, and the CSS standard defines one inch as exactly 96 CSS pixels. A browser therefore lets you write <code>width: 1in</code>, and it will happily draw something 96 CSS pixels wide.</p>
+<p>That does not make it an inch. A phone at a device pixel ratio of 3 draws those 96 CSS pixels with 288 physical pixels. On a 457 PPI panel, 288 pixels is about 0.63 inches, or 16 mm instead of 25.4 mm. On a 92 PPI monitor at a ratio of 1, the same "inch" comes out about 26.5 mm. The CSS inch is a convention for layout, not a promise about the glass.</p>
+<p>Browser zoom and operating-system display scaling change the device pixel ratio again. Zoom to 110% and every CSS length grows by 10%, ruler included. That is why the guides here suggest calibrating at your usual zoom and rechecking if you change it.</p>
+</section>
+<section id="unknown">
+<h2>What the browser will not tell a web page</h2>
+<p>A page can read the screen's size in CSS pixels and the device pixel ratio. From those it can recover the physical resolution. What it cannot read is the diagonal, the PPI or the physical width of the display. There is no web standard for it, partly because the answer is often unknown even to the browser: an external monitor reports its size inconsistently, if at all, and a window can be dragged between two monitors with different densities.</p>
+<p>Some Android browsers share a model hint, such as a short model code. Others, including Safari on iPhone, deliberately share very little, because detailed device information can be used to track people across sites. A model hint is a clue, not a measurement, and two variants of the same phone can have different displays.</p>
+</section>
+<section id="approach">
+<h2>How Screen Ruler works around it</h2>
+<ol>
+<li>It reads the resolution and pixel ratio the browser does provide, and any model hint.</li>
+<li>It looks for a matching phone in a local list of display specifications, and can optionally check shared calibrations from other visitors with the same model. The <a href="privacy.html">privacy page</a> explains what that sends.</li>
+<li>Whatever it finds is a starting point. You confirm it, choose a different device, or set the scale directly against a physical ruler. Your choice is saved in your browser.</li>
+</ol>
+<p>The last step is the one that matters. A ruler you have checked against a known length is more trustworthy than any automatic guess, which is why the <a href="reference-sizes.html">reference sizes guide</a> lists objects you are likely to have in a wallet or a drawer.</p>
+</section>
+<p><a href="index.html">Open the ruler</a> · <a href="guides.html">More guides</a></p>
+</main>
+<footer>Screen Ruler · Made by Geoffrey Bromilow<nav aria-label="Footer navigation"><a href="how-to-use.html">How to use</a><a href="guides.html">Guides</a><a href="accuracy.html">Accuracy &amp; calibration</a><a href="changelog.html">What's new</a><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></nav></footer>
+</body>
+</html>

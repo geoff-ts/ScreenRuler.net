@@ -88,7 +88,7 @@ test('disabled JavaScript leaves useful content and all guide links working', as
   await page.getByText('Quick start', { exact: true }).click();
   await expect(page.locator('.quick-guide ol')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('no-javascript.png') });
-  for (const path of ['how-to-use.html', 'accuracy.html', 'about.html', 'privacy.html', 'contact.html']) {
+  for (const path of ['how-to-use.html', 'guides.html', 'reference-sizes.html', 'measuring-screws-and-bolts.html', 'inch-fractions.html', 'screen-size-and-ppi.html', 'changelog.html', 'accuracy.html', 'about.html', 'privacy.html', 'contact.html']) {
     const response = await page.goto(baseURL + '/' + path);
     expect(response.status()).toBe(200);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -114,7 +114,7 @@ test('slow initial app load recovers from fallback without hiding content', asyn
 
 test('guide links, diagrams and narrow layouts work', async ({ page, request }, testInfo) => {
   const visited = new Set();
-  for (const path of ['how-to-use.html', 'accuracy.html', 'about.html', 'privacy.html', 'contact.html']) {
+  for (const path of ['how-to-use.html', 'guides.html', 'reference-sizes.html', 'measuring-screws-and-bolts.html', 'inch-fractions.html', 'screen-size-and-ppi.html', 'changelog.html', 'accuracy.html', 'about.html', 'privacy.html', 'contact.html']) {
     await page.goto('/' + path);
     await expect(page.locator('body')).toHaveCSS('overflow-x', 'visible');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

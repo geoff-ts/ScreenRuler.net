@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://screenruler.net/</loc></url>
-  <url><loc>https://screenruler.net/how-to-use.html</loc></url>
-  <url><loc>https://screenruler.net/accuracy.html</loc></url>
-  <url><loc>https://screenruler.net/about.html</loc></url>
-  <url><loc>https://screenruler.net/privacy.html</loc></url>
-  <url><loc>https://screenruler.net/contact.html</loc></url>
+  <url><loc>https://screenruler.net/</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/how-to-use.html</loc><lastmod>2026-09-22</lastmod></url>
+  <url><loc>https://screenruler.net/guides.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/reference-sizes.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/measuring-screws-and-bolts.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/inch-fractions.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/screen-size-and-ppi.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/accuracy.html</loc><lastmod>2026-09-22</lastmod></url>
+  <url><loc>https://screenruler.net/changelog.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/about.html</loc><lastmod>2026-10-02</lastmod></url>
+  <url><loc>https://screenruler.net/privacy.html</loc><lastmod>2026-09-21</lastmod></url>
+  <url><loc>https://screenruler.net/contact.html</loc><lastmod>2026-09-22</lastmod></url>
 </urlset>
