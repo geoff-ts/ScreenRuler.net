@@ -1,6 +1,17 @@
 const { test, expect } = require('@playwright/test');
 
+// Ads are paused in ruler-config.js while the site awaits AdSense approval.
+// Serve test IDs so the banner layout stays covered by these tests.
+async function withTestAdIds(page) {
+  await page.route('**/ruler-config.js*', async route => {
+    const body = (await (await route.fetch()).text())
+      .replace(/adsenseClient: '[^']*'/, "adsenseClient: 'ca-pub-0000000000000000'")
+      .replace(/bottomAdSlot: '[^']*'/, "bottomAdSlot: '0000000000'");
+    return route.fulfill({ contentType: 'text/javascript', body });
+  });
+}
 async function isolateServices(page, ad = '') {
+  await withTestAdIds(page);
   await page.route('https://**/*', route => {
     if (route.request().url().includes('/adsbygoogle.js')) {
       return route.fulfill({ contentType: 'text/javascript', body: ad });
@@ -154,4 +165,15 @@ test('small screens and landscape keep the banner within its fixed dimensions', 
   const overlaps = intro.x < container.x + container.width && intro.x + intro.width > container.x &&
     intro.y < container.y + container.height && intro.y + intro.height > container.y;
   expect(overlaps).toBe(false);
+});
+test('the shipped config shows no banner and never requests the ad script', async ({ page }) => {
+  const adRequests = [];
+  page.on('request', request => { if (request.url().includes('googlesyndication')) adRequests.push(request.url()); });
+  await page.route('https://**/*', route => route.abort());
+  await ready(page);
+  await expect(page.locator('#bottomAdContainer')).toBeHidden();
+  await page.getByRole('button', { name: 'Measure fullscreen' }).click();
+  await expect(page.locator('#bottomAdContainer')).toBeHidden();
+  expect(await page.evaluate(() => document.body.classList.contains('ad-visible'))).toBe(false);
+  expect(adRequests).toEqual([]);
 });

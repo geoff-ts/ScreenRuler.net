@@ -7,6 +7,9 @@ window.SCREEN_RULER_CONFIG = {
     // AdSense values for the banner that follows the phone's physical bottom
     // edge (320 x 50 in portrait and 120 x 240 in landscape). Leave both empty
     // until the site is approved; empty values keep all advertising disabled.
-    adsenseClient: 'ca-pub-4844506276858974',
-    bottomAdSlot: '1113182365'
+    // Paused 2 October 2026 while the site builds content and traffic ahead of
+    // the next AdSense review. Restore 'ca-pub-4844506276858974' and
+    // '1113182365' before requesting that review.
+    adsenseClient: '',
+    bottomAdSlot: ''
 };
