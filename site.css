@@ -5,7 +5,7 @@
 #siteIntro p { margin: 8px 0; }
 #siteIntro nav { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 13px; margin: 12px 0; }
 #siteIntro a, .guide-page a { color: #6ee7b7; text-decoration: underline; text-underline-offset: 3px; }
-#scaleNotice { font-size: 13px; color: #fcd34d; }
+#scaleNotice { font-size: 13px; color: #f59e0b; }
 .ruler-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
 .ruler-actions button, #showSiteIntro { border: 1px solid #525252; border-radius: 9px; background: #262626; color: #fff; padding: 9px 12px; font-size: 13px; cursor: pointer; }
 .ruler-actions button:last-child { background: #065f46; border-color: #10b981; }
